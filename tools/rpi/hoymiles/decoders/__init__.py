@@ -13,6 +13,7 @@ import logging
 f_crc_m = crcmod.predefined.mkPredefinedCrcFun('modbus')
 f_crc8 = crcmod.mkCrcFun(0x101, initCrc=0, xorOut=0)
 
+
 def g_unpack(s_fmt, s_buf):
     """Chunk unpack helper
 
@@ -28,6 +29,7 @@ def g_unpack(s_fmt, s_buf):
     s_exc = len(s_buf) % cs
 
     return struct.iter_unpack(s_fmt, s_buf[:len(s_buf) - s_exc])
+
 
 def print_table_unpack(s_fmt, payload, cw=6):
     """
@@ -60,6 +62,7 @@ def print_table_unpack(s_fmt, payload, cw=6):
             dbg += ''.join([f'{num[0]: >{cw*l_fmt}}' for num in g_unpack(s_fmt, payload[offset:])])
             logging.debug(dbg)
 
+
 class Response:
     """ All Response Shared methods """
     inverter_ser = None
@@ -91,6 +94,7 @@ class Response:
                 'inverter_name': self.inverter_name,
                 'dtu_ser': self.dtu_ser}
 
+
 class StatusResponse(Response):
     """Inverter StatusResponse object"""
     phase_keys  = ['voltage','current','power','reactive_power','frequency']
@@ -111,10 +115,10 @@ class StatusResponse(Response):
         :rtype: tuple
         """
         size = struct.calcsize(fmt)
-        if (len(self.response) < base+size):
-           self.unpack_error = True
-           logging.error(f'base: {base} size: {size} len: {len(self.response)} fmt: {fmt} rep: {self.response}')
-           return [0]
+        if len(self.response) < base+size:
+            self.unpack_error = True
+            logging.error(f'base: {base} size: {size} len: {len(self.response)} fmt: {fmt} rep: {self.response}')
+            return [0]
         return struct.unpack(fmt, self.response[base:base+size])
 
     @property
@@ -193,15 +197,16 @@ class StatusResponse(Response):
         for string in data['strings']:
             dc_sum_power += string['power']
         if dc_sum_power != 0:
-           data['efficiency'] = round(ac_sum_power * 100 / dc_sum_power, 2)
+            data['efficiency'] = round(ac_sum_power * 100 / dc_sum_power, 2)
         else:
-           data['efficiency'] = 0.0
+            data['efficiency'] = 0.0
 
         data['event_count'] = self.event_count
         data['time'] = self.time_rx
 
         if not self.unpack_error:
             return data
+
 
 class UnknownResponse(Response):
     """
@@ -240,7 +245,8 @@ class UnknownResponse(Response):
         pcrc = struct.unpack('>H', self.response[-2:])[0]
         return f_crc_m(self.response[:-2]) == pcrc
 
-    def unpack_table(self, *args):
+    @staticmethod
+    def unpack_table(*args):
         """Access shared debug function"""
         print_table_unpack(*args)
 
@@ -339,7 +345,7 @@ class EventsResponse(UnknownResponse):
 
             logging.debug(' '.join([f'{byte:02x}' for byte in chunk]) + ': ')
 
-            if (len(chunk[0:6]) < 6):
+            if len(chunk[0:6]) < 6:
                 logging.error(f'length of chunk must be greater or equal 6 bytes: {chunk}')
                 return
 
@@ -382,7 +388,7 @@ class HardwareInfoResponse(UnknownResponse):
 
         data = super().__dict__()
 
-        if (len(self.response) != 16):
+        if len(self.response) != 16:
             logging.error(f'HardwareInfoResponse: data length should be 16 bytes - measured {len(self.response)} bytes')
             logging.error(f'HardwareInfoResponse: data: {self.response}')
             return data
@@ -411,6 +417,7 @@ class HardwareInfoResponse(UnknownResponse):
         data['FW_build_MM'] = fw_build_MM
         data['FW_HW_ID'] = hw_id
         return data
+
 
 class DebugDecodeAny(UnknownResponse):
     """Default decoder"""
@@ -460,8 +467,10 @@ class DebugDecodeAny(UnknownResponse):
 class Hm300Decode01(HardwareInfoResponse):
     """ 1121-series Firmware version / date """
 
+
 class Hm300Decode02(EventsResponse):
     """ 1121-series Inverter generic events log """
+
 
 class Hm300Decode0B(StatusResponse):
     """ 1121-series mirco-inverters status data """
@@ -470,22 +479,27 @@ class Hm300Decode0B(StatusResponse):
     def dc_voltage_0(self):
         """ String 1 VDC """
         return self.unpack('>H', 2)[0]/10
+
     @property
     def dc_current_0(self):
         """ String 1 ampere """
         return self.unpack('>H', 4)[0]/100
+
     @property
     def dc_power_0(self):
         """ String 1 watts """
         return self.unpack('>H', 6)[0]/10
+
     @property
     def dc_energy_total_0(self):
         """ String 1 total energy in Wh """
         return self.unpack('>L', 8)[0]
+
     @property
     def dc_energy_daily_0(self):
         """ String 1 daily energy in Wh """
         return self.unpack('>H', 12)[0]
+
     @property
     def dc_irradiation_0(self):
         """ String 1 irratiation in percent """
@@ -499,40 +513,50 @@ class Hm300Decode0B(StatusResponse):
     def ac_voltage_0(self):
         """ Phase 1 VAC """
         return self.unpack('>H', 14)[0]/10
+
     @property
     def ac_current_0(self):
         """ Phase 1 ampere """
         return self.unpack('>H', 22)[0]/100
+
     @property
     def ac_power_0(self):
         """ Phase 1 watts """
         return self.unpack('>H', 18)[0]/10
+
     @property
     def ac_frequency_0(self):
         """ Grid frequency in Hertz """
         return self.unpack('>H', 16)[0]/100
+
     @property
     def ac_reactive_power_0(self):
         """ reactive power """
         return self.unpack('>H', 20)[0]/10
+
     @property
     def powerfactor(self):
         """ Powerfactor """
         return self.unpack('>H', 24)[0]/1000
+
     @property
     def temperature(self):
         """ Inverter temperature in °C """
         return self.unpack('>h', 26)[0]/10
+
     @property
     def event_count(self):
         """ Event counter """
         return self.unpack('>H', 28)[0]
 
+
 class Hm300Decode0C(Hm300Decode0B):
     """ 1121-series mirco-inverters status data """
 
+
 class Hm300Decode11(EventsResponse):
     """ 1121-series Inverter generic events log """
+
 
 class Hm300Decode12(EventsResponse):
     """ 1121-series Inverter major events log """
@@ -542,8 +566,10 @@ class Hm300Decode12(EventsResponse):
 class Hm600Decode01(HardwareInfoResponse):
     """ 1141-Series Firmware version / date """
 
+
 class Hm600Decode02(EventsResponse):
     """ 1141-Series Inverter generic events log """
+
 
 class Hm600Decode0B(StatusResponse):
     """ 1141-series mirco-inverters status data """
@@ -552,22 +578,27 @@ class Hm600Decode0B(StatusResponse):
     def dc_voltage_0(self):
         """ String 1 VDC """
         return self.unpack('>H', 2)[0]/10
+
     @property
     def dc_current_0(self):
         """ String 1 ampere """
         return self.unpack('>H', 4)[0]/100
+
     @property
     def dc_power_0(self):
         """ String 1 watts """
         return self.unpack('>H', 6)[0]/10
+
     @property
     def dc_energy_total_0(self):
         """ String 1 total energy in Wh """
         return self.unpack('>L', 14)[0]
+
     @property
     def dc_energy_daily_0(self):
         """ String 1 daily energy in Wh """
         return self.unpack('>H', 22)[0]
+
     @property
     def dc_irradiation_0(self):
         """ String 1 irratiation in percent """
@@ -581,22 +612,27 @@ class Hm600Decode0B(StatusResponse):
     def dc_voltage_1(self):
         """ String 2 VDC """
         return self.unpack('>H', 8)[0]/10
+
     @property
     def dc_current_1(self):
         """ String 2 ampere """
         return self.unpack('>H', 10)[0]/100
+
     @property
     def dc_power_1(self):
         """ String 2 watts """
         return self.unpack('>H', 12)[0]/10
+
     @property
     def dc_energy_total_1(self):
         """ String 2 total energy in Wh """
         return self.unpack('>L', 18)[0]
+
     @property
     def dc_energy_daily_1(self):
         """ String 2 daily energy in Wh """
         return self.unpack('>H', 24)[0]
+
     @property
     def dc_irradiation_1(self):
         """ String 2 irratiation in percent """
@@ -610,40 +646,50 @@ class Hm600Decode0B(StatusResponse):
     def ac_voltage_0(self):
         """ Phase 1 VAC """
         return self.unpack('>H', 26)[0]/10
+
     @property
     def ac_current_0(self):
         """ Phase 1 ampere """
         return self.unpack('>H', 34)[0]/100
+
     @property
     def ac_power_0(self):
         """ Phase 1 watts """
         return self.unpack('>H', 30)[0]/10
+
     @property
     def ac_frequency_0(self):
         """ Grid frequency in Hertz """
         return self.unpack('>H', 28)[0]/100
+
     @property
     def ac_reactive_power_0(self):
         """ reactive power """
         return self.unpack('>H', 32)[0]/10
+
     @property
     def powerfactor(self):
         """ Powerfactor """
         return self.unpack('>H', 36)[0]/1000
+
     @property
     def temperature(self):
         """ Inverter temperature in °C """
         return self.unpack('>h', 38)[0]/10
+
     @property
     def event_count(self):
         """ Event counter """
         return self.unpack('>H', 40)[0]
 
+
 class Hm600Decode0C(Hm600Decode0B):
     """ 1141-series mirco-inverters status data """
 
+
 class Hm600Decode11(EventsResponse):
     """ 1141-Series Inverter generic events log """
+
 
 class Hm600Decode12(EventsResponse):
     """ 1141-Series Inverter major events log """
@@ -653,8 +699,10 @@ class Hm600Decode12(EventsResponse):
 class Hm1200Decode01(HardwareInfoResponse):
     """ 1161-Series Firmware version / date """
 
+
 class Hm1200Decode02(EventsResponse):
     """ 1161-Series Inverter generic events log """
+
 
 class Hm1200Decode0B(StatusResponse):
     """ 1161-series mirco-inverters status data """
@@ -663,22 +711,27 @@ class Hm1200Decode0B(StatusResponse):
     def dc_voltage_0(self):
         """ String 1 VDC """
         return self.unpack('>H', 2)[0]/10
+
     @property
     def dc_current_0(self):
         """ String 1 ampere """
         return self.unpack('>H', 4)[0]/100
+
     @property
     def dc_power_0(self):
         """ String 1 watts """
         return self.unpack('>H', 8)[0]/10
+
     @property
     def dc_energy_total_0(self):
         """ String 1 total energy in Wh """
         return self.unpack('>L', 12)[0]
+
     @property
     def dc_energy_daily_0(self):
         """ String 1 daily energy in Wh """
         return self.unpack('>H', 20)[0]
+
     @property
     def dc_irradiation_0(self):
         """ String 1 irratiation in percent """
@@ -692,22 +745,27 @@ class Hm1200Decode0B(StatusResponse):
     def dc_voltage_1(self):
         """ String 2 VDC """
         return self.unpack('>H', 2)[0]/10
+
     @property
     def dc_current_1(self):
         """ String 2 ampere """
         return self.unpack('>H', 6)[0]/100
+
     @property
     def dc_power_1(self):
         """ String 2 watts """
         return self.unpack('>H', 10)[0]/10
+
     @property
     def dc_energy_total_1(self):
         """ String 2 total energy in Wh """
         return self.unpack('>L', 16)[0]
+
     @property
     def dc_energy_daily_1(self):
         """ String 2 daily energy in Wh """
         return self.unpack('>H', 22)[0]
+
     @property
     def dc_irradiation_0(self):
         """ String 2 irratiation in percent """
@@ -721,22 +779,27 @@ class Hm1200Decode0B(StatusResponse):
     def dc_voltage_2(self):
         """ String 3 VDC """
         return self.unpack('>H', 24)[0]/10
+
     @property
     def dc_current_2(self):
         """ String 3 ampere """
         return self.unpack('>H', 26)[0]/100
+
     @property
     def dc_power_2(self):
         """ String 3 watts """
         return self.unpack('>H', 30)[0]/10
+
     @property
     def dc_energy_total_2(self):
         """ String 3 total energy in Wh """
         return self.unpack('>L', 34)[0]
+
     @property
     def dc_energy_daily_2(self):
         """ String 3 daily energy in Wh """
         return self.unpack('>H', 42)[0]
+
     @property
     def dc_irradiation_0(self):
         """ String 3 irratiation in percent """
@@ -762,10 +825,12 @@ class Hm1200Decode0B(StatusResponse):
     def dc_energy_total_3(self):
         """ String 4 total energy in Wh """
         return self.unpack('>L', 38)[0]
+
     @property
     def dc_energy_daily_3(self):
         """ String 4 daily energy in Wh """
         return self.unpack('>H', 44)[0]
+
     @property
     def dc_irradiation_0(self):
         """ String 4 irratiation in percent """
@@ -779,40 +844,50 @@ class Hm1200Decode0B(StatusResponse):
     def ac_voltage_0(self):
         """ Phase 1 VAC """
         return self.unpack('>H', 46)[0]/10
+
     @property
     def ac_current_0(self):
         """ Phase 1 ampere """
         return self.unpack('>H', 54)[0]/100
+
     @property
     def ac_power_0(self):
         """ Phase 1 watts """
         return self.unpack('>H', 50)[0]/10
+
     @property
     def ac_frequency_0(self):
         """ Grid frequency in Hertz """
         return self.unpack('>H', 48)[0]/100
+
     @property
     def ac_reactive_power_0(self):
         """ reactive power """
         return self.unpack('>H', 52)[0]/10
+
     @property
     def powerfactor(self):
         """ Powerfactor """
         return self.unpack('>H', 56)[0]/1000
+
     @property
     def temperature(self):
         """ Inverter temperature in °C """
         return self.unpack('>h', 58)[0]/10
+
     @property
     def event_count(self):
         """ Event counter """
         return self.unpack('>H', 60)[0]
 
+
 class Hm1200Decode0C(Hm1200Decode0B):
     """ 1161-series mirco-inverters status data """
 
+
 class Hm1200Decode11(EventsResponse):
     """ 1161-Series Inverter generic events log """
+
 
 class Hm1200Decode12(EventsResponse):
     """ 1161-Series Inverter major events log """

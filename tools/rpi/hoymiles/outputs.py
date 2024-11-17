@@ -9,7 +9,7 @@ import socket
 import logging
 from datetime import datetime, timezone
 from hoymiles.decoders import StatusResponse, HardwareInfoResponse
-from hoymiles import HOYMILES_TRANSACTION_LOGGING, HOYMILES_DEBUG_LOGGING
+from hoymiles import HOYMILES_DEBUG_LOGGING
 
 class OutputPluginFactory:
     def __init__(self, **params):
