@@ -9,50 +9,46 @@ import sys
 import struct
 import re
 import time
-from datetime import datetime
-from datetime import timedelta
-from suntimes import SunTimes
-import argparse
-import yaml
-from yaml.loader import SafeLoader
 import hoymiles
 import logging
 from logging.handlers import RotatingFileHandler
 
+if sys.platform == 'linux':
+    from hoymiles.nrf24 import HoymilesNRF
+else:
+    from hoymiles.nrf24mpy import HoymilesNRF
+    print("importing HoymilesNRF micropython version")
+
 ################################################################################
-import hoymiles.nrf24
-
-""" Signal Handler """
+""" Signal Handler """  #
 ################################################################################
-# from signal import signal, Signals, SIGINT, SIGTERM, SIGKILL, SIGHUP
-from signal import *
+if sys.platform == 'linux':
+    from signal import signal, Signals, SIGINT, SIGTERM, SIGHUP
+
+    def signal_handler(sig_num, frame):
+        signame = Signals(sig_num).name
+        logging.info(f'Stop by Signal {signame} ({sig_num})')
+        print(f'Stop by Signal <{signame}> ({sig_num}) at: {time.strftime("%d.%m.%Y %H:%M:%S")}')
+
+        if mqtt_client:
+            mqtt_client.disco()
+
+        if influx_client:
+            influx_client.disco()
+
+        if volkszaehler_client:
+            volkszaehler_client.disco()
+
+        sys.exit(0)
 
 
-def signal_handler(sig_num, frame):
-    signame = Signals(sig_num).name
-    logging.info(f'Stop by Signal {signame} ({sig_num})')
-    print(f'Stop by Signal <{signame}> ({sig_num}) at: {time.strftime("%d.%m.%Y %H:%M:%S")}')
+    signal(SIGINT, signal_handler)  # Interrupt from keyboard (CTRL + C)
+    signal(SIGTERM, signal_handler)  # Signal Handler from terminating processes
+    signal(SIGHUP, signal_handler)  # Hangup detected on controlling terminal or death of controlling process
+    # signal(SIGKILL, signal_handler)   # Signal Handler SIGKILL and SIGSTOP cannot be caught, blocked, or ignored!!
+ ################################################################################
+ ################################################################################
 
-    if mqtt_client:
-        mqtt_client.disco()
-
-    if influx_client:
-        influx_client.disco()
-
-    if volkszaehler_client:
-        volkszaehler_client.disco()
-
-    sys.exit(0)
-
-
-signal(SIGINT, signal_handler)  # Interrupt from keyboard (CTRL + C)
-signal(SIGTERM, signal_handler)  # Signal Handler from terminating processes
-signal(SIGHUP, signal_handler)  # Hangup detected on controlling terminal or death of controlling process
-
-
-# signal(SIGKILL, signal_handler)   # Signal Handler SIGKILL and SIGSTOP cannot be caught, blocked, or ignored!!
-################################################################################
-################################################################################
 
 class InfoCommands:
     InverterDevInform_Simple = 0  # 0x00
@@ -75,66 +71,27 @@ class InfoCommands:
     InitDataState = 0xff
 
 
-class SunsetHandler:
-    def __init__(self, sunset_config):
-        self.suntimes = None
-        if sunset_config and sunset_config.get('disabled', True) == False:
-            latitude = sunset_config.get('latitude')
-            longitude = sunset_config.get('longitude')
-            altitude = sunset_config.get('altitude')
-            self.suntimes = SunTimes(longitude=longitude, latitude=latitude, altitude=altitude)
-            self.nextSunset = self.suntimes.setutc(datetime.utcnow())
-            logging.info(f'Todays sunset is at {self.nextSunset} UTC')
-        else:
-            logging.info('Sunset disabled.')
-
-    def checkWaitForSunrise(self):
-        if not self.suntimes:
-            return
-        # if the sunset already happened for today
-        now = datetime.utcnow()
-        if self.nextSunset < now:
-            # wait until the sun rises again. if it's already after midnight, this will be today
-            nextSunrise = self.suntimes.riseutc(now)
-            if nextSunrise < now:
-                tomorrow = now + timedelta(days=1)
-                nextSunrise = self.suntimes.riseutc(tomorrow)
-            self.nextSunset = self.suntimes.setutc(nextSunrise)
-            time_to_sleep = int((nextSunrise - datetime.utcnow()).total_seconds())
-            logging.info(
-                f'Next sunrise is at {nextSunrise} UTC, next sunset is at {self.nextSunset} UTC, sleeping for {time_to_sleep} seconds.')
-            if time_to_sleep > 0:
-                time.sleep(time_to_sleep)
-                logging.info(f'Woke up...')
-
-    def sun_status2mqtt(self, dtu_ser, dtu_name):
-        if not mqtt_client or not self.suntimes:
-            return
-
-        if self.suntimes:
-            local_sunrise = self.suntimes.riselocal(datetime.now()).strftime("%d.%m.%YT%H:%M")
-            local_sunset = self.suntimes.setlocal(datetime.now()).strftime("%d.%m.%YT%H:%M")
-            local_zone = self.suntimes.setlocal(datetime.now()).tzinfo.key
-            mqtt_client.info2mqtt({'topic': f'{dtu_name}/{dtu_ser}'}, \
-                                  {'dis_night_comm': 'True', \
-                                   'local_sunrise': local_sunrise, \
-                                   'local_sunset': local_sunset,
-                                   'local_zone': local_zone})
-        else:
-            mqtt_client.sun_info2mqtt({'sun_topic': f'{dtu_name}/{dtu_ser}'}, \
-                                      {'dis_night_comm': 'False'})
-
-
 def main_loop(ahoy_config):
     """Main loop"""
+    # Prepare for multiple transceivers, makes them configurable
+    hmradio = None
+    for radio_config in ahoy_config.get('nrf', [{}]):
+        hmradio = HoymilesNRF(**radio_config)  # hmm wird jedesmal ueberschrieben
+
     inverters = [
         inverter for inverter in ahoy_config.get('inverters', [])
         if not inverter.get('disabled', False)]
 
-    sunset = SunsetHandler(ahoy_config.get('sunset'))
     dtu_ser = ahoy_config.get('dtu', {}).get('serial', None)
     dtu_name = ahoy_config.get('dtu', {}).get('name', 'hoymiles-dtu')
-    sunset.sun_status2mqtt(dtu_ser, dtu_name)
+
+    sunset = None
+    sunset_cfg = ahoy_config.get('sunset')
+    if sunset_cfg:
+        from hoymiles.sunsethandler import SunsetHandler
+        sunset = SunsetHandler(sunset_cfg, mqtt_client)
+        sunset.sun_status2mqtt(dtu_ser, dtu_name)
+
     loop_interval = ahoy_config.get('interval', 1)
     transmit_retries = ahoy_config.get('transmit_retries', 5)
     if transmit_retries <= 0:
@@ -146,7 +103,9 @@ def main_loop(ahoy_config):
     try:
         do_init = True
         while True:
-            sunset.checkWaitForSunrise()
+
+            if sunset:
+                sunset.checkWaitForSunrise()
 
             t_loop_start = time.time()
 
@@ -158,7 +117,7 @@ def main_loop(ahoy_config):
                     sys.exit(999)
                 if hoymiles.HOYMILES_DEBUG_LOGGING:
                     logging.info(f'Poll inverter name={inverter["name"]} ser={inverter["serial"]}')
-                poll_inverter(inverter, dtu_ser, do_init, transmit_retries)
+                poll_inverter(inverter, dtu_ser, do_init, transmit_retries, hmradio)
             do_init = False
 
             if loop_interval > 0:
@@ -172,7 +131,7 @@ def main_loop(ahoy_config):
         raise
 
 
-def poll_inverter(inverter, dtu_ser, do_init, retries):
+def poll_inverter(inverter, dtu_ser, do_init, retries, hmradio):
     """
     Send/Receive command_queue, initiate status poll on inverter
 
@@ -341,7 +300,16 @@ def init_logging(ahoy_config):
     logging.info(f'start logging for {dtu_name} with level: {logging.getLevelName(logging.root.level)}')
 
 
+# global MQTT - client object
+mqtt_client = None
+influx_client = None
+volkszaehler_client = None
+
 if __name__ == '__main__':
+    import argparse
+    import yaml
+    from yaml.loader import SafeLoader
+
     parser = argparse.ArgumentParser(description='Ahoy - Hoymiles solar inverter gateway', prog="hoymiles")
     parser.add_argument("-c", "--config-file", nargs="?", required=True,
                         help="configuration file")
@@ -375,12 +343,7 @@ if __name__ == '__main__':
     ahoy_config = dict(cfg.get('ahoy', {}))
     init_logging(ahoy_config)
 
-    # Prepare for multiple transceivers, makes them configurable
-    for radio_config in ahoy_config.get('nrf', [{}]):
-        hmradio = hoymiles.nrf24.HoymilesNRF(**radio_config)
-
     # create MQTT - client object
-    mqtt_client = None
     mqtt_config = ahoy_config.get('mqtt', None)
     if mqtt_config and not mqtt_config.get('disabled', False):
         from .outputs import MqttOutputPlugin
@@ -388,7 +351,6 @@ if __name__ == '__main__':
         mqtt_client = MqttOutputPlugin(mqtt_config)
 
     # create INFLUX - client object
-    influx_client = None
     influx_config = ahoy_config.get('influxdb', None)
     if influx_config and not influx_config.get('disabled', False):
         from .outputs import InfluxOutputPlugin
@@ -401,7 +363,6 @@ if __name__ == '__main__':
             measurement=influx_config.get('measurement', 'hoymiles'))
 
     # create VOLKSZAEHLER - client object
-    volkszaehler_client = None
     volkszaehler_config = ahoy_config.get('volkszaehler', {})
     if volkszaehler_config and not volkszaehler_config.get('disabled', False):
         from .outputs import VolkszaehlerOutputPlugin

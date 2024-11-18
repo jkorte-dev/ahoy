@@ -6,15 +6,18 @@ Hoymiles micro-inverters python shared code
 """
 
 import re
+import time
 from datetime import datetime
 from .decoders import *
-from .nrf24 import *
+
+HOYMILES_DEBUG_LOGGING = False  # todo fix this
 
 
 f_crc_m = crcmod.predefined.mkPredefinedCrcFun('modbus')
 f_crc8 = crcmod.mkCrcFun(0x101, initCrc=0, xorOut=0)
 
 HOYMILES_TRANSACTION_LOGGING=False
+
 
 def ser_to_hm_addr(inverter_ser):
     """
@@ -27,6 +30,7 @@ def ser_to_hm_addr(inverter_ser):
     """
     bcd = int(str(inverter_ser)[-8:], base=16)
     return struct.pack('>L', bcd)
+
 
 def ser_to_esb_addr(inverter_ser):
     """
@@ -46,6 +50,7 @@ def ser_to_esb_addr(inverter_ser):
     """
     air_order = ser_to_hm_addr(inverter_ser)[::-1] + b'\x01'
     return air_order[::-1]
+
 
 class ResponseDecoderFactory:
     """
@@ -131,6 +136,7 @@ class ResponseDecoderFactory:
         r_code = self.request[10]
         return f'{r_code:02x}'
 
+
 class ResponseDecoder(ResponseDecoderFactory):
     """
     Base response
@@ -209,6 +215,7 @@ class ResponseDecoder(ResponseDecoderFactory):
                 dtu_ser=self.dtu_ser,
                 strings=self.strings
                 )
+
 
 class InverterPacketFragment:
     """ESB Frame"""
@@ -311,6 +318,7 @@ def frame_payload(payload):
 
     return payload
 
+
 def compose_esb_fragment(fragment, seq=b'\x80', src=99999999, dst=1, **params):
     """
     Build standart ESB request fragment
@@ -341,6 +349,7 @@ def compose_esb_fragment(fragment, seq=b'\x80', src=99999999, dst=1, **params):
 
     return packet
 
+
 def compose_esb_packet(packet, mtu=17, **params):
     """
     Build ESB packet, chunk packet
@@ -353,6 +362,7 @@ def compose_esb_packet(packet, mtu=17, **params):
     for i in range(0, len(packet), mtu):
         fragment = compose_esb_fragment(packet[i:i+mtu], **params)
         yield fragment
+
 
 def compose_send_time_payload(cmdId, alarm_id=0):
     """
@@ -374,6 +384,7 @@ def compose_send_time_payload(cmdId, alarm_id=0):
     payload = payload + b'\x00\x00\x00\x00'           # 20..23
 
     return frame_payload(payload)
+
 
 class InverterTransaction:
     """
@@ -577,6 +588,7 @@ class InverterTransaction:
         """
         size = len(self.request)
         return f'Transmit | {hexify_payload(self.request)}'
+
 
 def hexify_payload(byte_var):
     """

@@ -6,8 +6,8 @@ Hoymiles Micro-Inverters decoder library
 """
 
 import struct
-from datetime import datetime, timedelta
-import crcmod
+from datetime import datetime, timedelta # todo replace or use micropython-lib ?
+import crcmod  # todo available for micropython ?
 import logging
 
 f_crc_m = crcmod.predefined.mkPredefinedCrcFun('modbus')
@@ -82,7 +82,8 @@ class Response:
         strings = params.get('strings', None)
         self.inv_strings = strings
 
-        if isinstance(params.get('time_rx', None), datetime):
+        #self.time_rx = params.get('time_rx', datetime.now())  # todo so zum beispiel soolte ok sein?
+        if isinstance(params.get('time_rx', None), datetime):  # todo find replacement
             self.time_rx = params['time_rx']
         else:
             self.time_rx = datetime.now()
@@ -97,8 +98,8 @@ class Response:
 
 class StatusResponse(Response):
     """Inverter StatusResponse object"""
-    phase_keys  = ['voltage','current','power','reactive_power','frequency']
-    string_keys  = ['voltage','current','power','energy_total','energy_daily', 'irradiation']
+    phase_keys = ['voltage','current','power','reactive_power','frequency']
+    string_keys = ['voltage','current','power','energy_total','energy_daily', 'irradiation']
     temperature = None
     frequency = None
     powerfactor = None
@@ -351,6 +352,7 @@ class EventsResponse(UnknownResponse):
 
             opcode, a_code, a_count, uptime_sec = struct.unpack('>BBHH', chunk[0:6])
             a_text = self.alarm_codes.get(a_code, 'N/A')
+            # todo replace datetime.timedelta
             logging.debug(f' uptime={timedelta(seconds=uptime_sec)} a_count={a_count} opcode={opcode} a_code={a_code} a_text={a_text}')
 
             dbg = ''
@@ -365,6 +367,7 @@ class EventsResponse(UnknownResponse):
         data['inv_stat_num'] = self.status
         data['inv_stat_txt'] = self.a_text
         return data
+
 
 class HardwareInfoResponse(UnknownResponse):
     def __init__(self, *args, **params):
