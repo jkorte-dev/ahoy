@@ -115,6 +115,11 @@ def main_loop(ahoy_config):
                 if not 'serial' in inverter:
                     logging.error("No inverter serial number found in ahoy.yml - exit")
                     sys.exit(999)
+                ser_str = str(inverter["serial"])
+                if not command_queue[ser_str]:
+                    command_queue[ser_str] = []       # initialize map for inverter
+                if not event_message_index[ser_str]:
+                    event_message_index[ser_str] = 0  # initialize map for inverter
                 if hoymiles.HOYMILES_DEBUG_LOGGING:
                     logging.info(f'Poll inverter name={inverter["name"]} ser={inverter["serial"]}')
                 poll_inverter(inverter, dtu_ser, do_init, transmit_retries, hmradio)
@@ -300,10 +305,16 @@ def init_logging(ahoy_config):
     logging.info(f'start logging for {dtu_name} with level: {logging.getLevelName(logging.root.level)}')
 
 
-# global MQTT - client object
+# global variables
+
 mqtt_client = None
 influx_client = None
 volkszaehler_client = None
+
+event_message_index = {}
+command_queue = {}
+
+mqtt_command_topic_subs = []  # todo used by mqtt_on_command
 
 if __name__ == '__main__':
     import argparse
@@ -368,10 +379,6 @@ if __name__ == '__main__':
         from .outputs import VolkszaehlerOutputPlugin
 
         volkszaehler_client = VolkszaehlerOutputPlugin(volkszaehler_config)
-
-    event_message_index = {}
-    command_queue = {}
-    mqtt_command_topic_subs = []
 
     for g_inverter in ahoy_config.get('inverters', []):
         g_inverter_ser = g_inverter.get('serial')
