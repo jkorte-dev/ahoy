@@ -6,7 +6,7 @@ Hoymiles Micro-Inverters decoder library
 """
 
 import struct
-from datetime import datetime, timedelta # todo replace or use micropython-lib ?
+from datetime import datetime, timedelta, timezone  # todo replace or use micropython-lib ?
 import crcmod  # todo available for micropython ?
 import logging
 
@@ -82,14 +82,14 @@ class Response:
         strings = params.get('strings', None)
         self.inv_strings = strings
 
-        #self.time_rx = params.get('time_rx', datetime.now())  # todo so zum beispiel soolte ok sein?
-        if isinstance(params.get('time_rx', None), datetime):  # todo find replacement
+        #self.time_rx = params.get('time_rx', datetime.now())  # todo so zum beispiel sollte ok sein?
+        if isinstance(params.get('time_rx', None), datetime):
             self.time_rx = params['time_rx']
         else:
-            self.time_rx = datetime.now()
+            self.time_rx = datetime.now(timezone.utc)
 
-    def __dict__(self):
-        """ Base values, availabe in each __dict__ call """
+    def __dict_(self):
+        """ Base values, availabe in each __dict_ call """
         return {
                 'inverter_ser': self.inverter_ser,
                 'inverter_name': self.inverter_name,
@@ -172,14 +172,14 @@ class StatusResponse(Response):
 
         return strings
 
-    def __dict__(self):
+    def __dict_(self):
         """
         Get all known data
 
         :return: dict of properties
         :rtype: dict
         """
-        data = super().__dict__()
+        data = super().__dict_()
         data['phases'] = self.phases
         data['strings'] = self.strings
         data['temperature'] = self.temperature
@@ -352,7 +352,6 @@ class EventsResponse(UnknownResponse):
 
             opcode, a_code, a_count, uptime_sec = struct.unpack('>BBHH', chunk[0:6])
             a_text = self.alarm_codes.get(a_code, 'N/A')
-            # todo replace datetime.timedelta
             logging.debug(f' uptime={timedelta(seconds=uptime_sec)} a_count={a_count} opcode={opcode} a_code={a_code} a_text={a_text}')
 
             dbg = ''
@@ -360,10 +359,10 @@ class EventsResponse(UnknownResponse):
                 dbg += f' {fmt:7}: ' + str(struct.unpack('>' + fmt, chunk))
             logging.debug(dbg)
 
-    def __dict__(self):
-        """ Base values, availabe in each __dict__ call """
+    def __dict_(self):
+        """ Base values, availabe in each __dict_ call """
 
-        data = super().__dict__()
+        data = super().__dict_()
         data['inv_stat_num'] = self.status
         data['inv_stat_txt'] = self.a_text
         return data
@@ -386,10 +385,10 @@ class HardwareInfoResponse(UnknownResponse):
         self.response = bytes('\x27\x1a\x07\xe5\x04\x4d\x03\x4a\x00\x68\x00\x00\x00\x00\xe6\xfb', 'latin1')
         """
 
-    def __dict__(self):
-        """ Base values, availabe in each __dict__ call """
+    def __dict_(self):
+        """ Base values, availabe in each __dict_ call """
 
-        data = super().__dict__()
+        data = super().__dict_()
 
         if len(self.response) != 16:
             logging.error(f'HardwareInfoResponse: data length should be 16 bytes - measured {len(self.response)} bytes')
@@ -401,14 +400,14 @@ class HardwareInfoResponse(UnknownResponse):
 
         fw_version_maj = int((fw_version / 10000))
         fw_version_min = int((fw_version % 10000) / 100)
-        fw_version_pat = int((fw_version %   100))
+        fw_version_pat = int((fw_version % 100))
         fw_build_mm = int(fw_build_mmdd / 100)
         fw_build_dd = int(fw_build_mmdd % 100)
         fw_build_HH = int(fw_build_hhmm / 100)
         fw_build_MM = int(fw_build_hhmm % 100)
-        logging.info(f'Firmware: {fw_version_maj}.{fw_version_min}.{fw_version_pat} '\
-                      f'build at {fw_build_dd:>02}/{fw_build_mm:>02}/{fw_build_yyyy}T{fw_build_HH:>02}:{fw_build_MM:>02}, '\
-                      f'HW revision {hw_id}')
+        logging.info(f'Firmware: {fw_version_maj}.{fw_version_min}.{fw_version_pat} ' +
+                     f'build at {fw_build_dd:>02}/{fw_build_mm:>02}/{fw_build_yyyy}T{fw_build_HH:>02}:{fw_build_MM:>02}, ' +
+                     f'HW revision {hw_id}')
 
         data['FW_ver_maj'] = fw_version_maj
         data['FW_ver_min'] = fw_version_min

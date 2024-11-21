@@ -4,19 +4,20 @@
 """
 Hoymiles micro-inverters python shared code
 """
-
 import re
+import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone  # todo datetime.now() does not work :-(
+
 from .decoders import *
 
-HOYMILES_DEBUG_LOGGING = False  # todo fix this
+HOYMILES_DEBUG_LOGGING = False
 
 
 f_crc_m = crcmod.predefined.mkPredefinedCrcFun('modbus')
 f_crc8 = crcmod.mkCrcFun(0x101, initCrc=0, xorOut=0)
 
-HOYMILES_TRANSACTION_LOGGING=False
+HOYMILES_TRANSACTION_LOGGING = False
 
 
 def ser_to_hm_addr(inverter_ser):
@@ -28,7 +29,7 @@ def ser_to_hm_addr(inverter_ser):
     :return: inverter address
     :rtype: bytes
     """
-    bcd = int(str(inverter_ser)[-8:], base=16)
+    bcd = int(str(inverter_ser)[-8:], 16)  # jk base keyword not support in micropython
     return struct.pack('>L', bcd)
 
 
@@ -52,6 +53,11 @@ def ser_to_esb_addr(inverter_ser):
     return air_order[::-1]
 
 
+class HMBufferError(Exception):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
 class ResponseDecoderFactory:
     """
     Prepare payload decoder
@@ -72,7 +78,7 @@ class ResponseDecoderFactory:
     def __init__(self, response, **params):
         self.response = response
 
-        self.time_rx = params.get('time_rx', datetime.now())
+        self.time_rx = params.get('time_rx', datetime.now(timezone.utc))
 
         if 'request' in params:
             self.request = params['request']
@@ -236,14 +242,14 @@ class InverterPacketFragment:
         """
 
         if not time_rx:
-            time_rx = datetime.now()
+            time_rx = datetime.now(timezone.utc)
         self.time_rx = time_rx
 
         self.frame = payload
 
         # check crc8
         if f_crc8(payload[:-1]) != payload[-1]:
-            raise BufferError('Frame corrupted - crc8 check failed')
+            raise HMBufferError('Frame corrupted - crc8 check failed')  # jk BufferError not supported in micropython
 
         self.ch_rx = ch_rx
         self.ch_tx = ch_tx
@@ -428,7 +434,7 @@ class InverterTransaction:
                 self.txpower = params['txpower']
 
         if not request_time:
-            request_time=datetime.now()
+            request_time = datetime.now(timezone.utc)
 
         self.scratch = []
         if 'scratch' in params:
@@ -473,17 +479,20 @@ class InverterTransaction:
                 response = InverterPacketFragment(
                         payload=payload,
                         ch_rx=rx_channel, ch_tx=tx_channel,
-                        time_rx=datetime.now()
+                        time_rx=datetime.now(timezone.utc)
                         )
                 if HOYMILES_TRANSACTION_LOGGING:
                     logging.debug(response)
 
                 self.frame_append(response)
                 wait = True
-        except TimeoutError:
+        except OSError:  # jk was TimeoutError now OSError(ETIMEDOUT) thrown from module
             pass
-        except BufferError as e:
+        except HMBufferError as e:  # jk BufferError not supported
             logging.warning(f'Buffer error {e}')
+            pass
+        except Exception as e:  # jk new block
+            logging.warning(f'Exception {e}')
             pass
 
         return wait
@@ -539,7 +548,7 @@ class InverterTransaction:
         except StopIteration:
             seq_last = max(frames, key=lambda frame:frame.seq).seq if len(frames) else 0
             self.__retransmit_frame(seq_last + 1)
-            raise BufferError(f'Missing packet: Last packet {seq_last + 1}')
+            raise HMBufferError(f'Missing packet: Last packet {seq_last + 1}')   # jk BufferError not supported
 
         # Rebuild payload from unordered frames
         payload = b''
@@ -549,7 +558,7 @@ class InverterTransaction:
                 payload = payload + data_frame.data
             except StopIteration:
                 self.__retransmit_frame(frame_id)
-                raise BufferError(f'Frame {frame_id} missing: Request Retransmit')
+                raise HMBufferError(f'Frame {frame_id} missing: Request Retransmit')  # jk BufferError not supported
 
         payload = payload + end_frame.data
 
@@ -599,3 +608,184 @@ def hexify_payload(byte_var):
     :rtype: str
     """
     return ' '.join([f"{b:02x}" for b in byte_var])
+
+
+class InfoCommands:
+    InverterDevInform_Simple = 0  # 0x00
+    InverterDevInform_All = 1  # 0x01
+    GridOnProFilePara = 2  # 0x02
+    HardWareConfig = 3  # 0x03
+    SimpleCalibrationPara = 4  # 0x04
+    SystemConfigPara = 5  # 0x05
+    RealTimeRunData_Debug = 11  # 0x0b
+    RealTimeRunData_Reality = 12  # 0x0c
+    RealTimeRunData_A_Phase = 13  # 0x0d
+    RealTimeRunData_B_Phase = 14  # 0x0e
+    RealTimeRunData_C_Phase = 15  # 0x0f
+    AlarmData = 17  # 0x11, Alarm data - all unsent alarms
+    AlarmUpdate = 18  # 0x12, Alarm data - all pending alarms
+    RecordData = 19  # 0x13
+    InternalData = 20  # 0x14
+    GetLossRate = 21  # 0x15
+    GetSelfCheckState = 30  # 0x1e
+    InitDataState = 0xff
+
+
+class HoymilesDTU:
+    def __init__(self, ahoy_cfg, mqtt_clt=None, event_msg_idx=None, cmd_queue=None, status_handler=None, info_handler=None):
+        if cmd_queue is None:
+            cmd_queue = {}
+        if event_msg_idx is None:
+            event_msg_idx = {}
+        self.ahoy_config = ahoy_cfg
+        self.mqtt_client = mqtt_clt
+        self.event_message_index = event_msg_idx
+        self.command_queue = cmd_queue
+        self.status_handler = status_handler
+        self.info_handler = info_handler
+        self.hmradio = None
+        if sys.platform == 'linux':
+            from .nrf24 import HoymilesNRF
+        else:
+            from .nrf24mpy import HoymilesNRF
+            print("importing HoymilesNRF micropython version")
+        for radio_config in ahoy_cfg.get('nrf', [{}]):
+            self.hmradio = HoymilesNRF(**radio_config)  # hmm wird jedesmal ueberschrieben
+
+        self.inverters = [
+            inverter for inverter in ahoy_cfg.get('inverters', [])
+            if not inverter.get('disabled', False)]
+
+        self.dtu_ser = ahoy_cfg.get('dtu', {}).get('serial', None)
+        self.dtu_name = ahoy_cfg.get('dtu', {}).get('name', 'hoymiles-dtu')
+
+        self.sunset = None
+        sunset_cfg = ahoy_cfg.get('sunset')
+        if sunset_cfg and self.mqtt_client:
+            from hoymiles.sunsethandler import SunsetHandler
+            self.sunset = SunsetHandler(sunset_cfg, self.mqtt_client)
+            self.sunset.sun_status2mqtt(self.dtu_ser, self.dtu_name)
+
+        self.loop_interval = ahoy_cfg.get('interval', 1)
+        self.transmit_retries = ahoy_cfg.get('transmit_retries', 5)
+        if self.transmit_retries <= 0:
+            logging.critical('Parameter "transmit_retries" must be >0 - please check ahoy.yml.')
+            # print message to console too
+            print('Parameter "transmit_retries" must be >0 - please check ahoy.yml - STOP(0)x')
+            sys.exit(0)
+
+    def start(self):
+        try:
+            do_init = True
+            while True:
+
+                if self.sunset:
+                    self.sunset.checkWaitForSunrise()
+
+                t_loop_start = time.time()
+
+                for inverter in self.inverters:
+                    if 'name' not in inverter:
+                        inverter['name'] = 'hoymiles'
+                    if 'serial' not in inverter:
+                        logging.error("No inverter serial number found in ahoy.yml - exit")
+                        sys.exit(999)
+                    if HOYMILES_DEBUG_LOGGING:
+                        logging.info(f'Poll inverter name={inverter["name"]} ser={inverter["serial"]}')
+                    self.poll_inverter(inverter, do_init)
+                do_init = False
+
+                if self.loop_interval > 0:
+                    time_to_sleep = self.loop_interval - (time.time() - t_loop_start)
+                    if time_to_sleep > 0:
+                        time.sleep(time_to_sleep)
+
+        except Exception as e:
+            logging.error('Exception catched: %s' % e)
+            #logging.fatal(traceback.print_exc())
+            raise
+
+    def poll_inverter(self, inverter, do_init):
+        """
+        Send/Receive command_queue, initiate status poll on inverter
+        """
+        inverter_ser = inverter.get('serial')
+        inverter_name = inverter.get('name')
+        inverter_strings = inverter.get('strings')
+
+        # Queue at least status data request
+        inv_str = str(inverter_ser)
+        if do_init:
+            if not self.command_queue.get(inv_str):
+                self.command_queue[inv_str] = []       # initialize map for inverter
+                self.event_message_index[inv_str] = 0  # initialize map for inverter
+            self.command_queue[inv_str].append(compose_send_time_payload(InfoCommands.InverterDevInform_All))
+            # self.command_queue[inv_str].append(compose_send_time_payload(InfoCommands.SystemConfigPara))
+        self.command_queue[inv_str].append(compose_send_time_payload(InfoCommands.RealTimeRunData_Debug))
+
+        # Put all queued commands for current inverter on air
+        while len(self.command_queue[inv_str]) > 0:
+            payload = self.command_queue[inv_str].pop(0)  ## Sub.Cmd
+
+            # Send payload {ttl}-times until we get at least one reponse
+            payload_ttl = self.transmit_retries
+            response = None
+            while payload_ttl > 0:
+                payload_ttl = payload_ttl - 1
+                com = InverterTransaction(
+                    radio=self.hmradio,
+                    txpower=inverter.get('txpower', None),
+                    dtu_ser=self.dtu_ser,
+                    inverter_ser=inverter_ser,
+                    request=next(compose_esb_packet(
+                        payload,
+                        seq=b'\x80',
+                        src=self.dtu_ser,
+                        dst=inverter_ser
+                    )))
+                while com.rxtx():
+                    try:
+                        response = com.get_payload()
+                        payload_ttl = 0
+                    except Exception as e_all:
+                        if HOYMILES_TRANSACTION_LOGGING:
+                            logging.error(f'Error while retrieving data: {e_all}')
+                        pass
+
+            # Handle the response data if any
+            if response:
+                if HOYMILES_TRANSACTION_LOGGING:
+                    logging.debug(f'Payload: ' + hexify_payload(response))
+
+                # prepare decoder object
+                decoder = ResponseDecoder(response,
+                                                   request=com.request,
+                                                   inverter_ser=inverter_ser,
+                                                   inverter_name=inverter_name,
+                                                   dtu_ser=self.dtu_ser,
+                                                   strings=inverter_strings
+                                                   )
+
+                # get decoder object
+                result = decoder.decode()
+                if HOYMILES_DEBUG_LOGGING:
+                    logging.info(f'Decoded: {result.__dict_()}')
+
+                # check decoder object for output
+                if isinstance(result, decoders.StatusResponse):
+
+                    data = result.__dict_()   # todo not callable in micropython
+                    if data is not None and 'event_count' in data:
+                        if self.event_message_index[inv_str] < data['event_count']:
+                            self.event_message_index[inv_str] = data['event_count']
+                            self.command_queue[inv_str].append(compose_send_time_payload(InfoCommands.AlarmData,
+                                                                                             alarm_id=self.event_message_index[
+                                                                                                 inv_str]))
+
+                    if self.status_handler:
+                        self.status_handler(result, inverter)
+
+                # check decoder object for output
+                if isinstance(result, decoders.HardwareInfoResponse):
+                    if self.info_handler:
+                        self.info_handler(result, inverter)
