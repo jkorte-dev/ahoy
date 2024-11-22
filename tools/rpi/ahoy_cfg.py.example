@@ -9,9 +9,9 @@ ahoy_config = {'interval': 5,
                'dtu': {'serial': 99978563001, 'name': 'raspi-dtu'},
                'inverters': [
                    {'name': 'garage',
-                    'serial': 114182941658,
+                    'serial': 114172220003,
                     'txpower': 'low',
-                    'mqtt': {'send_raw_enabled': False, 'topic': 'hoymiles/114182941658'},
+                    'mqtt': {'send_raw_enabled': False, 'topic': 'hoymiles/114172220003'},
                     'strings': [
                         {'s_name': 'String 1 left', 's_maxpower': 380},
                         {'s_name': 'String 2 right', 's_maxpower': 380},
