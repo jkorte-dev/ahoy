@@ -6,11 +6,13 @@ Hoymiles Micro-Inverters decoder library
 """
 
 import struct
-from datetime import datetime, timedelta, timezone  # todo replace or use micropython-lib ?
-import crcmod  # todo available for micropython ?
+from datetime import datetime, timedelta, timezone
+import crcmod
 import logging
 
-f_crc_m = crcmod.predefined.mkPredefinedCrcFun('modbus')
+#f_crc_m = crcmod.predefined.mkPredefinedCrcFun('modbus')
+#f_crc8 = crcmod.mkCrcFun(0x101, initCrc=0, xorOut=0)
+f_crc_m = crcmod.mkCrcFun(0x18005, initCrc=0xffff, xorOut=0)  # simplified to use minimal crc mod
 f_crc8 = crcmod.mkCrcFun(0x101, initCrc=0, xorOut=0)
 
 
@@ -386,7 +388,7 @@ class HardwareInfoResponse(UnknownResponse):
         """
 
     def __dict_(self):
-        """ Base values, availabe in each __dict_ call """
+        """ Base values, available in each __dict_ call """
 
         data = super().__dict_()
 

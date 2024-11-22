@@ -7,16 +7,10 @@ Hoymiles micro-inverters python shared code
 import re
 import sys
 import time
-from datetime import datetime, timezone  # todo datetime.now() does not work :-(
 
 from .decoders import *
 
 HOYMILES_DEBUG_LOGGING = False
-
-
-f_crc_m = crcmod.predefined.mkPredefinedCrcFun('modbus')
-f_crc8 = crcmod.mkCrcFun(0x101, initCrc=0, xorOut=0)
-
 HOYMILES_TRANSACTION_LOGGING = False
 
 
@@ -774,7 +768,7 @@ class HoymilesDTU:
                 # check decoder object for output
                 if isinstance(result, decoders.StatusResponse):
 
-                    data = result.__dict_()   # todo not callable in micropython
+                    data = result.__dict_()
                     if data is not None and 'event_count' in data:
                         if self.event_message_index[inv_str] < data['event_count']:
                             self.event_message_index[inv_str] = data['event_count']
