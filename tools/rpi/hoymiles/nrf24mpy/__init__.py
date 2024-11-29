@@ -23,7 +23,7 @@ class HoymilesNRF:
 
     def __init__(self, **radio_config):
 
-        #spi = SPI(1)  # todo make configurable # esp32s2 config
+        #spi = SPI(1)  # todo make configurable # esp32s2 config:  m = {'sck': 7, 'miso': 9}; spi = SPI(1, **m)
         spi_num = radio_config.get('spi_num', 1)
         sck = Pin(radio_config.get('sck', 7))
         mosi = Pin(radio_config.get('mosi', 11))

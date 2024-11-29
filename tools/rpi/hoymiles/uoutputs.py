@@ -7,7 +7,7 @@ Hoymiles output plugin library
 
 # from datetime import datetime, timezone
 from hoymiles.decoders import StatusResponse, HardwareInfoResponse
-
+import framebuf
 
 class OutputPluginFactory:
     def __init__(self, **params):
@@ -20,6 +20,10 @@ class OutputPluginFactory:
 
 class DisplayPlugin(OutputPluginFactory):
     display = None
+    symbols = {'sum': bytearray(b'\x00\x00\x7f\x80`\x800\x00\x18\x00\x0c\x00\x18\x000\x00`\x80\x7f\x80'),
+               'cal': bytearray(b'\x7f\x80\x7f\x80@\x80D\x80L\x80T\x80D\x80D\x80@\x80\x7f\x80'),
+               'wifi': bytearray(b'\xf8\x00\x0e\x00\xe3\x009\x80\x0c\x80\xe6\xc02@\x1b@\xc9@\xc9@'),
+               'level': bytearray(b'\x00\x00\x01\x80\x01\x80\x01\x80\r\x80\r\x80\r\x80m\x80m\x80m\x80')}
 
     def __init__(self, config, **params):
         super().__init__(**params)
@@ -27,6 +31,7 @@ class DisplayPlugin(OutputPluginFactory):
         try:
             from machine import Pin, I2C
             from ssd1306 import SSD1306_I2C
+
         except ImportError as ex:
             print('Install module with command: mpremote mip install ssd1306')
             raise ex
@@ -46,6 +51,7 @@ class DisplayPlugin(OutputPluginFactory):
             self.display.fill(0)
             self.display.text("Ahoy DTU", 0, (display_height // 2), 1)
             self.display.show()
+            self.font_size = 10  # fontsize fix 8 + 2 pixel
 
         except Exception as e:
             print("display not initialized", e)
@@ -60,25 +66,43 @@ class DisplayPlugin(OutputPluginFactory):
         if data['phases'] is not None:
             for phase in data['phases']:
                 phase_sum_power += phase['power']
-        self._show_value(0, f"power: {phase_sum_power} W")
+        self._show_value(0, f"     {phase_sum_power} W")
+        self.show_symbol(0, 'level')
+        self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)
         if data['yield_today'] is not None:
             yield_today = data['yield_today']
-            self._show_value(1, f"today: {yield_today} Wh")
+            #self._show_value(1, f"today: {yield_today} Wh")
+            self._show_value(1, f"     {yield_today} Wh")
+            self.show_symbol(1, "cal", x=15)
         if data['yield_total'] is not None:
             yield_total = round(data['yield_total'] / 1000)
-            self._show_value(2, f"total: {yield_total} kWh")
+            #self._show_value(2, f"{yield_total} kWh")
+            self._show_value(2, f"     {yield_total} kWh")
+            self.show_symbol(2, "sum", x=15)
         if data['time'] is not None:
-            timestamp = data['time'].isoformat()
-            self._show_value(3, timestamp)
+            timestamp = data['time']  # datetime.isoformat()
+            Y, M, D, h, m, s, us, tz, fold = timestamp.tuple()
+            self._show_value(3, f' {D:02d}.{M:02d} {h:02d}:{m:02d}:{s:02d}')
 
-    def _show_value(self, slot, value):
+    def _show_value(self, slot, value):  # todo feature center / align
         if self.display is None:
             print(value)
             return
-        pos = slot * (self.display.height // 4)
-        self.display.fill_rect(0, pos, self.display.width, 10, 0)  # clear data on display
-        self.display.text(value, 0, pos, 1)
+        x = 0
+        y = slot * (self.display.height // 4)
+        self.display.fill_rect(x, y, self.display.width, self.font_size, 0)  # clear data on display
+        self.display.text(value, x, y, 1)
         self.display.show()
+
+    def show_symbol(self, slot, sym, x=None, y=None):
+        if slot:
+            y = slot * (self.display.height // 4)
+        x = x if x else 0
+        y = y if y else 0
+        data = self.symbols.get(sym)
+        if data:
+            self.display.blit(framebuf.FrameBuffer(data, self.font_size, self.font_size, framebuf.MONO_HLSB), x, y)
+            self.display.show()
 
 
 class MqttPlugin(OutputPluginFactory):
@@ -177,11 +201,12 @@ class MqttPlugin(OutputPluginFactory):
         elif isinstance(response, HardwareInfoResponse):
             if data["FW_ver_maj"] is not None and data["FW_ver_min"] is not None and data["FW_ver_pat"] is not None:
                 self._publish(f'{topic}/Firmware/Version',
-                                    f'{data["FW_ver_maj"]}.{data["FW_ver_min"]}.{data["FW_ver_pat"]}')
+                              f'{data["FW_ver_maj"]}.{data["FW_ver_min"]}.{data["FW_ver_pat"]}')
 
-            if data["FW_build_dd"] is not None and data["FW_build_mm"] is not None and data["FW_build_yy"] is not None and data["FW_build_HH"] is not None and data["FW_build_MM"] is not None:
+            if data["FW_build_dd"] is not None and data["FW_build_mm"] is not None and data[
+                "FW_build_yy"] is not None and data["FW_build_HH"] is not None and data["FW_build_MM"] is not None:
                 self._publish(f'{topic}/Firmware/Build_at',
-                                    f'{data["FW_build_dd"]}/{data["FW_build_mm"]}/{data["FW_build_yy"]}T{data["FW_build_HH"]}:{data["FW_build_MM"]}')
+                              f'{data["FW_build_dd"]}/{data["FW_build_mm"]}/{data["FW_build_yy"]}T{data["FW_build_HH"]}:{data["FW_build_MM"]}')
 
             if data["FW_HW_ID"] is not None:
                 self._publish(f'{topic}/Firmware/HWPartId', f'{data["FW_HW_ID"]}')
@@ -191,4 +216,3 @@ class MqttPlugin(OutputPluginFactory):
 
     def _publish(self, topic, value):
         self.client.publish(topic.encode(), str(value))
-        

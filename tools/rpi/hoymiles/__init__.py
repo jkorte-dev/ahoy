@@ -656,6 +656,8 @@ class HoymilesDTU:
         self.sunset = None
         sunset_cfg = ahoy_cfg.get('sunset')
         if sunset_cfg and self.mqtt_client:
+            # todo include sunset for micropython :
+            # https://github.com/micropython/micropython-lib/tree/732b15df1eb19d4bc2c8d900c7101158a22c5284/python-ecosys/suntime
             from hoymiles.sunsethandler import SunsetHandler
             self.sunset = SunsetHandler(sunset_cfg, self.mqtt_client)
             self.sunset.sun_status2mqtt(self.dtu_ser, self.dtu_name)
