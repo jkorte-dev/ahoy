@@ -7,13 +7,16 @@ Hoymiles Micro-Inverters decoder library
 
 import struct
 from datetime import datetime, timedelta, timezone
-import crcmod
+try:
+    from crcmod import mkCrcFun
+except ImportError:
+    from .ucrcmod import mkCrcFun
 import logging
 
 #f_crc_m = crcmod.predefined.mkPredefinedCrcFun('modbus')
 #f_crc8 = crcmod.mkCrcFun(0x101, initCrc=0, xorOut=0)
-f_crc_m = crcmod.mkCrcFun(0x18005, initCrc=0xffff, xorOut=0)  # simplified to use minimal crc mod
-f_crc8 = crcmod.mkCrcFun(0x101, initCrc=0, xorOut=0)
+f_crc_m = mkCrcFun(0x18005, initCrc=0xffff, xorOut=0)  # simplified to use minimal crc mod
+f_crc8 = mkCrcFun(0x101, initCrc=0, xorOut=0)
 
 
 def g_unpack(s_fmt, s_buf):

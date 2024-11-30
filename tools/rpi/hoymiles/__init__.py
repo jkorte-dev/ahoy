@@ -655,12 +655,13 @@ class HoymilesDTU:
 
         self.sunset = None
         sunset_cfg = ahoy_cfg.get('sunset')
-        if sunset_cfg and self.mqtt_client:
-            # todo include sunset for micropython :
-            # https://github.com/micropython/micropython-lib/tree/732b15df1eb19d4bc2c8d900c7101158a22c5284/python-ecosys/suntime
+        if sunset_cfg and self.mqtt_client and sys.platform == 'linux':
             from hoymiles.sunsethandler import SunsetHandler
             self.sunset = SunsetHandler(sunset_cfg, self.mqtt_client)
             self.sunset.sun_status2mqtt(self.dtu_ser, self.dtu_name)
+        elif sunset_cfg and not sys.platform == 'linux':
+            from hoymiles.usunsethandler import SunsetHandler
+            self.sunset = SunsetHandler(sunset_cfg)
 
         self.loop_interval = ahoy_cfg.get('interval', 1)
         self.transmit_retries = ahoy_cfg.get('transmit_retries', 5)
