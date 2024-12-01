@@ -6,6 +6,7 @@ from .nrf24_mp import RF24
 
 HOYMILES_DEBUG_LOGGING = False
 
+
 # https://github.com/nRF24/RF24/blob/3bbcce8d18b32be0b350978472b53830e3ad1285/nRF24L01.h
 
 #  mpremote mip install logging
@@ -23,13 +24,15 @@ class HoymilesNRF:
 
     def __init__(self, **radio_config):
 
-        #spi = SPI(1)  # todo make configurable # esp32s2 config:  m = {'sck': 7, 'miso': 9}; spi = SPI(1, **m)
+        # esp32s2 config:  {'spi_num', 1, 'sck': 7, 'miso': 9, 'mosi': 11}
         spi_num = radio_config.get('spi_num', 1)
-        sck = Pin(radio_config.get('sck', 7))
-        mosi = Pin(radio_config.get('mosi', 11))
-        miso = Pin(radio_config.get('miso', 9))
 
-        spi = SPI(spi_num, sck=sck, mosi=mosi, miso=miso)
+        cfg_ = {'sck': radio_config.get('sck'),
+                'mosi': radio_config.get('mosi'),
+                'miso': radio_config.get('miso')}
+
+        spi_cfg = {k: Pin(v) for k, v in cfg_.items() if v is not None}
+        spi = SPI(spi_num, **spi_cfg) if spi_cfg else SPI(spi_num)
         csn = Pin(radio_config.get('cs', 12))
         ce = Pin(radio_config.get('ce', 16))
 
@@ -45,8 +48,8 @@ class HoymilesNRF:
         self.next_tx_channel()
 
         if HOYMILES_DEBUG_LOGGING:
-            #c_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-            #logging.debug(f'{c_datetime} Transmit {len(packet)} bytes channel {self.tx_channel}: {self.hexify_payload(packet)}')
+            # c_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            # logging.debug(f'{c_datetime} Transmit {len(packet)} bytes channel {self.tx_channel}: {self.hexify_payload(packet)}')
             print(f'Transmit {len(packet)} bytes channel {self.tx_channel}: {self.hexify_payload(packet)}')
 
         inv_esb_addr = b'\01' + packet[1:5]
@@ -107,7 +110,7 @@ class HoymilesNRF:
                 # we do not need to pass size. the driver determines length by calling any() see above
                 payload = self.radio.read()  # payload = self.radio.read(size)
                 fragment = (payload, self.rx_channel, self.tx_channel)
-                #fragment = InverterPacketFragment(payload=payload,ch_rx=self.rx_channel, ch_tx=self.tx_channel)
+                # fragment = InverterPacketFragment(payload=payload,ch_rx=self.rx_channel, ch_tx=self.tx_channel)
                 received_sth = True
                 yield fragment
 
@@ -153,5 +156,6 @@ class HoymilesNRF:
     def __del__(self):
         self.radio.power = False  # self.radio.powerDown()
 
-    def hexify_payload(self, byte_var):
+    @staticmethod
+    def hexify_payload(byte_var):
         return ' '.join([f"{b:02x}" for b in byte_var])

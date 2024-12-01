@@ -8,6 +8,8 @@ Hoymiles output plugin library
 # from datetime import datetime, timezone
 from hoymiles.decoders import StatusResponse, HardwareInfoResponse
 import framebuf
+from time import sleep
+
 
 class OutputPluginFactory:
     def __init__(self, **params):
@@ -47,11 +49,13 @@ class DisplayPlugin(OutputPluginFactory):
             else:
                 i2c = I2C(i2c_num)
             print("Display i2c", i2c)
+            splash = "Ahoy! DTU"
+            self.font_size = 10  # fontsize fix 8 + 2 pixel
+
             self.display = SSD1306_I2C(display_width, display_height, i2c)
             self.display.fill(0)
-            self.display.text("Ahoy DTU", 0, (display_height // 2), 1)
+            self.display.text(splash, ((display_width - len(splash)*(self.font_size-2)) // 2), (display_height // 2), 1)
             self.display.show()
-            self.font_size = 10  # fontsize fix 8 + 2 pixel
 
         except Exception as e:
             print("display not initialized", e)
@@ -66,25 +70,23 @@ class DisplayPlugin(OutputPluginFactory):
         if data['phases'] is not None:
             for phase in data['phases']:
                 phase_sum_power += phase['power']
-        self._show_value(0, f"     {phase_sum_power} W")
+        self.show_value(0, f"     {phase_sum_power} W")
         self.show_symbol(0, 'level')
-        self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)
+        self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)  # todo show wifi symbol on wifi connect event
         if data['yield_today'] is not None:
             yield_today = data['yield_today']
-            #self._show_value(1, f"today: {yield_today} Wh")
-            self._show_value(1, f"     {yield_today} Wh")
+            self.show_value(1, f"     {yield_today} Wh")
             self.show_symbol(1, "cal", x=15)
         if data['yield_total'] is not None:
             yield_total = round(data['yield_total'] / 1000)
-            #self._show_value(2, f"{yield_total} kWh")
-            self._show_value(2, f"     {yield_total} kWh")
+            self.show_value(2, f"     {yield_total} kWh")
             self.show_symbol(2, "sum", x=15)
         if data['time'] is not None:
             timestamp = data['time']  # datetime.isoformat()
             Y, M, D, h, m, s, us, tz, fold = timestamp.tuple()
-            self._show_value(3, f' {D:02d}.{M:02d} {h:02d}:{m:02d}:{s:02d}')
+            self.show_value(3, f' {D:02d}.{M:02d} {h:02d}:{m:02d}:{s:02d}')
 
-    def _show_value(self, slot, value):  # todo feature center / align
+    def show_value(self, slot, value):  # todo feature center / align
         if self.display is None:
             print(value)
             return
@@ -107,20 +109,20 @@ class DisplayPlugin(OutputPluginFactory):
 
 class MqttPlugin(OutputPluginFactory):
     """ Mqtt output plugin """
-    client = None
-
     def __init__(self, config, **params):
         super().__init__(**params)
+
+        print("mqtt plugin", config)
+
+        self.dry_run = config.get('dry_run', False)
+        self.client = None
 
         try:
             from umqtt.simple import MQTTClient
         except ImportError:
             print('Install module with command: mpremote mip install mqtt.simple')
-
-        print("mqtt plugin", config)
-
         try:
-            import wlan
+            import wlan  # todo wlan setup ok like this?
             wlan.do_connect()
             from machine import unique_id
             from ubinascii import hexlify
@@ -128,12 +130,10 @@ class MqttPlugin(OutputPluginFactory):
             mqtt_client = MQTTClient(hexlify(unique_id()), mqtt_broker)
             mqtt_client.connect()
             print("connected to ", mqtt_broker)
-
+            self.client = mqtt_client
         except Exception as e:
             print("MQTT disabled. network error:", e)
             raise e
-
-        self.client = mqtt_client
 
     def store_status(self, response, **params):
         data = response.__dict_()
@@ -154,49 +154,53 @@ class MqttPlugin(OutputPluginFactory):
             # AC Data
             phase_id = 0
             phase_sum_power = 0
-            if data['phases'] is not None:
-                for phase in data['phases']:
-                    # todo topic umbennen
-                    self._publish(f'{topic}/emeter/{phase_id}/voltage', phase['voltage'])
-                    self._publish(f'{topic}/emeter/{phase_id}/current', phase['current'])
-                    self._publish(f'{topic}/emeter/{phase_id}/power', phase['power'])
-                    self._publish(f'{topic}/emeter/{phase_id}/Q_AC', phase['reactive_power'])
-                    self._publish(f'{topic}/emeter/{phase_id}/frequency', phase['frequency'])
+            phases_ac = data['phases']
+            if phases_ac is not None:
+                for phase in phases_ac:
+                    phase_name = f'ac/{phase_id}' if len(phases_ac) > 1 else 'ch0'
+                    self._publish(f'{topic}/{phase_name}/U_AC', phase['voltage'])
+                    self._publish(f'{topic}/{phase_name}/I_AC', phase['current'])
+                    self._publish(f'{topic}/{phase_name}/P_AC', phase['power'])
+                    self._publish(f'{topic}/{phase_name}/Q_AC', phase['reactive_power'])
+                    self._publish(f'{topic}/{phase_name}/F_AC', phase['frequency'])
                     phase_id = phase_id + 1
                     phase_sum_power += phase['power']
 
             # DC Data
-            string_id = 0
+            string_id = 1
             string_sum_power = 0
             if data['strings'] is not None:
                 for string in data['strings']:
+                    string_name = f'ch{string_id}'
                     if 'name' in string:
-                        string_name = string['name'].replace(" ", "_")
-                    else:
-                        string_name = string_id
-                    # todo topic umbennen
-                    self._publish(f'{topic}/emeter-dc/{string_name}/voltage', string['voltage'])
-                    self._publish(f'{topic}/emeter-dc/{string_name}/current', string['current'])
-                    self._publish(f'{topic}/emeter-dc/{string_name}/power', string['power'], )
-                    self._publish(f'{topic}/emeter-dc/{string_name}/YieldDay', string['energy_daily'])
-                    self._publish(f'{topic}/emeter-dc/{string_name}/YieldTotal', string['energy_total'] / 1000,
-                                  )
-                    self._publish(f'{topic}/emeter-dc/{string_name}/Irradiation', string['irradiation'])
+                        s_name = string['name'].replace(" ", "_")
+                        self._publish(f'{topic}/{string_name}/name', s_name)
+                    self._publish(f'{topic}/{string_name}/U_DC', string['voltage'])
+                    self._publish(f'{topic}/{string_name}/I_DC', string['current'])
+                    self._publish(f'{topic}/{string_name}/P_DC', string['power'], )
+                    self._publish(f'{topic}/{string_name}/YieldDay', string['energy_daily'])
+                    self._publish(f'{topic}/{string_name}/YieldTotal', string['energy_total'] / 1000)
+                    self._publish(f'{topic}/{string_name}/Irradiation', string['irradiation'])
                     string_id = string_id + 1
                     string_sum_power += string['power']
 
             # Global
+            if data['temperature'] is not None:
+                self._publish(f'{topic}/Temp', data['temperature'])
+
+            # Total
+            self._publish(f'{topic}/total/P_DC', string_sum_power)
+            self._publish(f'{topic}/total/P_AC', phase_sum_power)
             if data['event_count'] is not None:
-                self._publish(f'{topic}/total_events', data['event_count'])
+                self._publish(f'{topic}/total/total_events', data['event_count'])
             if data['powerfactor'] is not None:
-                self._publish(f'{topic}/PF_AC', data['powerfactor'])
-            self._publish(f'{topic}/Temp', data['temperature'])
+                self._publish(f'{topic}/total/PF_AC', data['powerfactor'])
             if data['yield_total'] is not None:
-                self._publish(f'{topic}/YieldTotal', data['yield_total'] / 1000)
+                self._publish(f'{topic}/total/YieldTotal', data['yield_total'] / 1000)
             if data['yield_today'] is not None:
-                self._publish(f'{topic}/YieldToday', data['yield_today'] / 1000)
+                self._publish(f'{topic}/total/YieldToday', data['yield_today'] / 1000)
             if data['efficiency'] is not None:
-                self._publish(f'{topic}/Efficiency', data['efficiency'])
+                self._publish(f'{topic}/total/Efficiency', data['efficiency'])
 
         elif isinstance(response, HardwareInfoResponse):
             if data["FW_ver_maj"] is not None and data["FW_ver_min"] is not None and data["FW_ver_pat"] is not None:
@@ -215,4 +219,26 @@ class MqttPlugin(OutputPluginFactory):
             raise ValueError('Data needs to be instance of StatusResponse or a instance of HardwareInfoResponse')
 
     def _publish(self, topic, value):
-        self.client.publish(topic.encode(), str(value))
+        if self.dry_run:
+            print(topic, str(value))
+        else:
+            self.client.publish(topic.encode(), str(value))
+
+
+class BlinkPlugin(OutputPluginFactory):
+    def __init__(self, config, **params):
+        super().__init__(**params)
+        led_pin = config.get('led_pin')
+        self.high_on = config.get('led_high_on', True)
+        if led_pin is None:
+            self.led = None
+        else:
+            from machine import Pin
+            self.led = Pin(led_pin, Pin.OUT)
+
+    def store_status(self, response, **params):
+        if self.led:
+            self.led.value(self.high_on)
+            sleep(0.05)  # keep ist short because it is blocking
+            self.led.value(not self.high_on)  # self.led.toggle() not always supported
+
