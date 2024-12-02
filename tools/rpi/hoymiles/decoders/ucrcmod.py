@@ -1,4 +1,5 @@
-# todo beschreibung ...
+# stripped down to a minimum from cpython crcmod
+# https://crcmod.sourceforge.net/intro.html#license
 # mkCrcFun 0x18005 0xffff, True 0 => _crc16r (modbus)
 # mkCrcFun 0x101 0 True 0 => _crc8r
 

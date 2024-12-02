@@ -660,7 +660,8 @@ class HoymilesDTU:
             self.sunset = SunsetHandler(sunset_cfg, self.mqtt_client)
             self.sunset.sun_status2mqtt(self.dtu_ser, self.dtu_name)
         elif sunset_cfg and not sys.platform == 'linux':
-            from hoymiles.usunsethandler import SunsetHandler
+            # float precision is not sufficient to cal sunset/sunrise we use web api instead
+            from hoymiles.websunsethandler import SunsetHandler
             self.sunset = SunsetHandler(sunset_cfg)
 
         self.loop_interval = ahoy_cfg.get('interval', 1)

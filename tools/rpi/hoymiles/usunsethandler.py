@@ -22,7 +22,8 @@ class SunsetHandler:
             self.suntimes.calc_sunrise_sunset(*time.localtime()[:3])
             hour, minutes = divmod(self.suntimes.sunset,  60)  # sunset in minutes
             #logging.info
-            print(f'Todays sunset is at {hour:02d}:{minutes:02d} UTC')
+            print(f'localtime()={time.localtime()}, lat={latitude}, lon={longitude}')
+            print(f'Todays sunset is at {hour:02d}:{minutes:02d} UTC, sunrise is at {self.suntimes.sunrise//60}:{self.suntimes.sunrise%60:02d} UTC')
         else:
             logging.info('Sunset disabled.')
 
@@ -43,10 +44,11 @@ class SunsetHandler:
             time_to_sleep = int(self.suntimes.sunrise - now) * 60
 
         # logging.info
-        print(f'Next sunrise is at {self.suntimes.sunrise//60}:{self.suntimes.sunrise%60:02d} UTC, next sunset is at {self.suntimes.sunset//60}:{self.suntimes.sunset%60:02d} UTC, sleeping for {time_to_sleep} seconds.')
+        # print(f'Next sunrise is at {self.suntimes.sunrise//60}:{self.suntimes.sunrise%60:02d} UTC, next sunset is at {self.suntimes.sunset//60}:{self.suntimes.sunset%60:02d} UTC, sleeping for {time_to_sleep} seconds.')
         # h, m = divmod(time_to_sleep//60, 60); print(f'Wake up in {h:02d} hours {m:02d} min.')
 
         if time_to_sleep > 0:
+            print(f'Next sunrise is at {self.suntimes.sunrise//60}:{self.suntimes.sunrise%60:02d} UTC, next sunset is at {self.suntimes.sunset//60}:{self.suntimes.sunset%60:02d} UTC, sleeping for {time_to_sleep} seconds.')
             time.sleep(time_to_sleep)
             logging.info(f'Woke up...')
 

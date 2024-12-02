@@ -9,6 +9,7 @@ Hoymiles output plugin library
 from hoymiles.decoders import StatusResponse, HardwareInfoResponse
 import framebuf
 from time import sleep
+import logging
 
 
 class OutputPluginFactory:
@@ -121,9 +122,8 @@ class MqttPlugin(OutputPluginFactory):
             from umqtt.simple import MQTTClient
         except ImportError:
             print('Install module with command: mpremote mip install mqtt.simple')
+            return
         try:
-            import wlan  # todo wlan setup ok like this?
-            wlan.do_connect()
             from machine import unique_id
             from ubinascii import hexlify
             mqtt_broker = config.get('host', '127.0.0.1')
@@ -131,9 +131,9 @@ class MqttPlugin(OutputPluginFactory):
             mqtt_client.connect()
             print("connected to ", mqtt_broker)
             self.client = mqtt_client
-        except Exception as e:
-            print("MQTT disabled. network error:", e)
-            raise e
+        except OSError as e:
+            print("MQTT disabled. network error?:", e)
+            logging.exception(e)
 
     def store_status(self, response, **params):
         data = response.__dict_()
@@ -219,7 +219,7 @@ class MqttPlugin(OutputPluginFactory):
             raise ValueError('Data needs to be instance of StatusResponse or a instance of HardwareInfoResponse')
 
     def _publish(self, topic, value):
-        if self.dry_run:
+        if self.dry_run or self.client is None:
             print(topic, str(value))
         else:
             self.client.publish(topic.encode(), str(value))
