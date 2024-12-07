@@ -80,7 +80,7 @@ class DisplayPlugin(OutputPluginFactory):
             self.show_symbol(1, "cal", x=15)
         if data['yield_total'] is not None:
             yield_total = round(data['yield_total'] / 1000)
-            self.show_value(2, f"     {yield_total} kWh")
+            self.show_value(2, f"     {yield_total:01d} kWh")
             self.show_symbol(2, "sum", x=15)
         if data['time'] is not None:
             timestamp = data['time']  # datetime.isoformat()
