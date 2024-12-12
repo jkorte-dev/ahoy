@@ -26,7 +26,8 @@ class DisplayPlugin(OutputPluginFactory):
     symbols = {'sum': bytearray(b'\x00\x00\x7f\x80`\x800\x00\x18\x00\x0c\x00\x18\x000\x00`\x80\x7f\x80'),
                'cal': bytearray(b'\x7f\x80\x7f\x80@\x80D\x80L\x80T\x80D\x80D\x80@\x80\x7f\x80'),
                'wifi': bytearray(b'\xf8\x00\x0e\x00\xe3\x009\x80\x0c\x80\xe6\xc02@\x1b@\xc9@\xc9@'),
-               'level': bytearray(b'\x00\x00\x01\x80\x01\x80\x01\x80\r\x80\r\x80\r\x80m\x80m\x80m\x80')}
+               'level': bytearray(b'\x00\x00\x01\x80\x01\x80\x01\x80\r\x80\r\x80\r\x80m\x80m\x80m\x80'),
+               'blank': bytearray([0x00] * 20)}
 
     def __init__(self, config, **params):
         super().__init__(**params)
@@ -119,7 +120,7 @@ class MqttPlugin(OutputPluginFactory):
         self.client = None
 
         try:
-            from umqtt.simple import MQTTClient
+            from umqtt.robust import MQTTClient
         except ImportError:
             print('Install module with command: mpremote mip install mqtt.simple')
             return

@@ -12,8 +12,8 @@ def init_network_time():
 
 def result_handler(result, inverter):
     print(result.__dict_())
-#    mqtt.store_status(result)
     display.store_status(result)
+    mqtt.store_status(result)
 
 
 init_network_time()

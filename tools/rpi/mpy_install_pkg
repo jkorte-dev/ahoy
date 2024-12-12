@@ -1,3 +1,4 @@
 python3 -m http.server
 #micropython -m mip install http://localhost:8000/package.json
-mpremote mip install http://localhost:8000/package.json
+#mpremote mip install http://localhost:8000/package.json
+mpremote mip install --target / http://localhost:8000/package.json
