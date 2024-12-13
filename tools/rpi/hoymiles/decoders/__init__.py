@@ -93,8 +93,8 @@ class Response:
         else:
             self.time_rx = datetime.now(timezone.utc)
 
-    def __dict_(self):
-        """ Base values, availabe in each __dict_ call """
+    def to_dict(self):
+        """ Base values, availabe in each to_dict call """
         return {
                 'inverter_ser': self.inverter_ser,
                 'inverter_name': self.inverter_name,
@@ -177,14 +177,14 @@ class StatusResponse(Response):
 
         return strings
 
-    def __dict_(self):
+    def to_dict(self):
         """
         Get all known data
 
         :return: dict of properties
         :rtype: dict
         """
-        data = super().__dict_()
+        data = super().to_dict()
         data['phases'] = self.phases
         data['strings'] = self.strings
         data['temperature'] = self.temperature
@@ -364,10 +364,10 @@ class EventsResponse(UnknownResponse):
                 dbg += f' {fmt:7}: ' + str(struct.unpack('>' + fmt, chunk))
             logging.debug(dbg)
 
-    def __dict_(self):
-        """ Base values, availabe in each __dict_ call """
+    def to_dict(self):
+        """ Base values, availabe in each to_dict call """
 
-        data = super().__dict_()
+        data = super().to_dict()
         data['inv_stat_num'] = self.status
         data['inv_stat_txt'] = self.a_text
         return data
@@ -390,10 +390,10 @@ class HardwareInfoResponse(UnknownResponse):
         self.response = bytes('\x27\x1a\x07\xe5\x04\x4d\x03\x4a\x00\x68\x00\x00\x00\x00\xe6\xfb', 'latin1')
         """
 
-    def __dict_(self):
-        """ Base values, available in each __dict_ call """
+    def to_dict(self):
+        """ Base values, available in each to_dict call """
 
-        data = super().__dict_()
+        data = super().to_dict()
 
         if len(self.response) != 16:
             logging.error(f'HardwareInfoResponse: data length should be 16 bytes - measured {len(self.response)} bytes')

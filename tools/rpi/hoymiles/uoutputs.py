@@ -66,7 +66,7 @@ class DisplayPlugin(OutputPluginFactory):
         if not isinstance(response, StatusResponse):
             raise ValueError('Data needs to be instance of StatusResponse')
 
-        data = response.__dict_()
+        data = response.to_dict()
 
         phase_sum_power = 0
         if data['phases'] is not None:
@@ -137,7 +137,7 @@ class MqttPlugin(OutputPluginFactory):
             logging.exception(e)
 
     def store_status(self, response, **params):
-        data = response.__dict_()
+        data = response.to_dict()
 
         if data is None:
             return

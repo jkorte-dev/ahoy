@@ -92,7 +92,7 @@ class InfluxOutputPlugin(OutputPluginFactory):
         if not isinstance(response, StatusResponse):
             raise ValueError('Data needs to be instance of StatusResponse')
 
-        data = response.__dict_()
+        data = response.to_dict()
 
         measurement = self._measurement + f',location={data["inverter_ser"]}'
 
@@ -226,7 +226,7 @@ class MqttOutputPlugin(OutputPluginFactory):
         :raises ValueError: when response is not instance of StatusResponse
         """
 
-        data = response.__dict_()
+        data = response.to_dict()
 
         if data is None:
             logging.warn("received data object is empty")
@@ -445,7 +445,7 @@ class VolkszaehlerOutputPlugin(OutputPluginFactory):
         if len(self.inverters) == 0:
             return
 
-        data = response.__dict_()
+        data = response.to_dict()
         serial = data["inverter_ser"]
         if serial in self.inverters:
             output = self.inverters[serial]

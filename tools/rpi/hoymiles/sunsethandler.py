@@ -1,5 +1,6 @@
 import logging
 import time
+import asyncio
 from datetime import datetime, timedelta
 
 
@@ -23,7 +24,7 @@ class SunsetHandler:
         else:
             logging.info('Sunset disabled.')
 
-    def checkWaitForSunrise(self):
+    async def checkWaitForSunrise(self):
         if not self.suntimes:
             return
         # if the sunset already happened for today
@@ -39,7 +40,7 @@ class SunsetHandler:
             logging.info(
                 f'Next sunrise is at {nextSunrise} UTC, next sunset is at {self.nextSunset} UTC, sleeping for {time_to_sleep} seconds.')
             if time_to_sleep > 0:
-                time.sleep(time_to_sleep)
+                await asyncio.sleep(time_to_sleep)
                 logging.info(f'Woke up...')
 
     def sun_status2mqtt(self, dtu_ser, dtu_name):

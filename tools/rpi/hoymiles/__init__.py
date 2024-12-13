@@ -7,6 +7,7 @@ Hoymiles micro-inverters python shared code
 import re
 import sys
 import time
+import asyncio
 
 from .decoders import *
 
@@ -672,13 +673,13 @@ class HoymilesDTU:
             print('Parameter "transmit_retries" must be >0 - please check ahoy.yml - STOP(0)x')
             sys.exit(0)
 
-    def start(self):
+    async def start(self):
         try:
             do_init = True
             while True:
 
                 if self.sunset:
-                    self.sunset.checkWaitForSunrise()
+                    await self.sunset.checkWaitForSunrise()
 
                 t_loop_start = time.time()
 
@@ -696,7 +697,7 @@ class HoymilesDTU:
                 if self.loop_interval > 0:
                     time_to_sleep = self.loop_interval - (time.time() - t_loop_start)
                     if time_to_sleep > 0:
-                        time.sleep(time_to_sleep)
+                        await asyncio.sleep(time_to_sleep)
 
         except Exception as e:
             logging.error('Exception catched: %s' % e)
@@ -767,12 +768,12 @@ class HoymilesDTU:
                 # get decoder object
                 result = decoder.decode()
                 if HOYMILES_DEBUG_LOGGING:
-                    logging.info(f'Decoded: {result.__dict_()}')
+                    logging.info(f'Decoded: {result.to_dict()}')
 
                 # check decoder object for output
                 if isinstance(result, decoders.StatusResponse):
 
-                    data = result.__dict_()
+                    data = result.to_dict()
                     if data is not None and 'event_count' in data:
                         if self.event_message_index[inv_str] < data['event_count']:
                             self.event_message_index[inv_str] = data['event_count']

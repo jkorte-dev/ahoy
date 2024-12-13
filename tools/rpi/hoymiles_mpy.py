@@ -11,7 +11,7 @@ def init_network_time():
 
 
 def result_handler(result, inverter):
-    print(result.__dict_())
+    print(result.to_dict())
     display.store_status(result)
     mqtt.store_status(result)
 
@@ -22,5 +22,8 @@ display = hoymiles.uoutputs.DisplayPlugin({'i2c_num': 0})
 
 dtu = HoymilesDTU(ahoy_cfg=ahoy_config,
                   status_handler=result_handler,
-                  info_handler=lambda result, inverter: print("hw_info", result, result.__dict_()))
-dtu.start()
+                  info_handler=lambda result, inverter: print("hw_info", result, result.to_dict()))
+
+import asyncio
+asyncio.run(dtu.start())
+

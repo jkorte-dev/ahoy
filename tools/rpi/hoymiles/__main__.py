@@ -181,5 +181,6 @@ if __name__ == '__main__':
                                command_queue,        # pass only if need in global context
                                status_handler=status_callback,
                                info_handler=info_callback)
-    dtu.start()
+    import asyncio
+    asyncio.run(dtu.start())
     # main_loop(ahoy_config)  # mqtt_client, influx_client, volkszaehler_client, event_message_index, command_queue

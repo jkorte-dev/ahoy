@@ -1,6 +1,7 @@
 import logging
 import time
 import requests
+import asyncio
 
 
 class SunsetHandler:
@@ -25,7 +26,7 @@ class SunsetHandler:
         else:
             logging.info('Sunset disabled.')
 
-    def checkWaitForSunrise(self):
+    async def checkWaitForSunrise(self):
         if not self.suntimes_sunset or not self.suntimes_sunrise:
             return
         # if the sunset already happened for today
@@ -42,7 +43,7 @@ class SunsetHandler:
         if time_to_sleep > 0:
             print(f'Next sunrise is at {self.suntimes_sunrise//60:02d}:{self.suntimes_sunrise%60:02d} UTC, next sunset is at {self.suntimes_sunset//60:02d}:{self.suntimes_sunset%60:02d} UTC, sleeping for {time_to_sleep} seconds.')
             print(f'Wake up in {time_to_sleep//3600:02d} hours {(time_to_sleep//60)%60:02d} min.')
-            time.sleep(time_to_sleep)
+            await asyncio.sleep(time_to_sleep)
             logging.info(f'Woke up...')
 
     def _calc_sunrise_sunset(self, tomorrow=False):
