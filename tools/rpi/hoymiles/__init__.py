@@ -665,7 +665,7 @@ class HoymilesDTU:
             from hoymiles.websunsethandler import SunsetHandler
             self.sunset = SunsetHandler(sunset_cfg)
 
-        self.loop_interval = ahoy_cfg.get('interval', 1)
+        self.loop_interval = ahoy_cfg.get('interval', 2)
         self.transmit_retries = ahoy_cfg.get('transmit_retries', 5)
         if self.transmit_retries <= 0:
             logging.critical('Parameter "transmit_retries" must be >0 - please check ahoy.yml.')
@@ -691,20 +691,21 @@ class HoymilesDTU:
                         sys.exit(999)
                     if HOYMILES_DEBUG_LOGGING:
                         logging.info(f'Poll inverter name={inverter["name"]} ser={inverter["serial"]}')
-                    self.poll_inverter(inverter, do_init)
+                    await self.poll_inverter(inverter, do_init)
                 do_init = False
 
                 if self.loop_interval > 0:
                     time_to_sleep = self.loop_interval - (time.time() - t_loop_start)
                     if time_to_sleep > 0:
                         await asyncio.sleep(time_to_sleep)
+                await asyncio.sleep(0.1)  # 0.1 ok ohne inverter
 
         except Exception as e:
             logging.error('Exception catched: %s' % e)
             #logging.fatal(traceback.print_exc())
             raise
 
-    def poll_inverter(self, inverter, do_init):
+    async def poll_inverter(self, inverter, do_init):
         """
         Send/Receive command_queue, initiate status poll on inverter
         """
@@ -714,6 +715,7 @@ class HoymilesDTU:
 
         # Queue at least status data request
         inv_str = str(inverter_ser)
+        print(f"polling inverter {inverter_name} ...")
         if do_init:
             if not self.command_queue.get(inv_str):
                 self.command_queue[inv_str] = []       # initialize map for inverter
@@ -750,6 +752,8 @@ class HoymilesDTU:
                         if HOYMILES_TRANSACTION_LOGGING:
                             logging.error(f'Error while retrieving data: {e_all}')
                         pass
+                    await asyncio.sleep(0.001)
+                await asyncio.sleep(0.1)
 
             # Handle the response data if any
             if response:

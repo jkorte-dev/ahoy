@@ -5,7 +5,7 @@
 Hoymiles output plugin library
 """
 
-# from datetime import datetime, timezone
+from datetime import datetime, timezone
 from hoymiles.decoders import StatusResponse, HardwareInfoResponse
 import framebuf
 from time import sleep
@@ -242,4 +242,22 @@ class BlinkPlugin(OutputPluginFactory):
             self.led.value(self.high_on)
             sleep(0.05)  # keep ist short because it is blocking
             self.led.value(not self.high_on)  # self.led.toggle() not always supported
+
+
+class WebPlugin(OutputPluginFactory):
+    last_response = {'time': datetime.now(timezone.utc), 'inverter_name': 'unkown', 'phases': [{}], 'strings': [{}]}
+
+    def __init__(self, config, **params):
+        super().__init__(**params)
+
+    def store_status(self, response, **params):
+        self.last_response = response.to_dict()
+
+    def get_data(self):
+        _last = self.last_response
+        _timestamp = _last['time']
+        if isinstance(_timestamp, datetime):
+            _new_ts = _timestamp.isoformat().split('.')[0]
+            _last['time'] = _new_ts
+        return f"{_last}".replace('\'', '\"')
 
