@@ -30,9 +30,9 @@ def result_handler(result, inverter):
 
 init_network_time()
 
-#  mqtt = hoymiles.uoutputs.MqttPlugin(ahoy_config.get('mqtt', {'host': 'homematic-ccu2'}))
 display = hoymiles.uoutputs.DisplayPlugin({'i2c_num': 0})
 webdata = hoymiles.uoutputs.WebPlugin({})
+# mqtt = hoymiles.uoutputs.MqttPlugin(ahoy_config.get('mqtt', {'host': 'homematic-ccu2'}))
 # blink = hoymiles.uoutputs.BlinkPlugin({'led_pin': 7, 'led_high_on': True})
 
 
@@ -51,7 +51,6 @@ async def webserver():
 
 
 async def main():
-    #print('main()')
     import gc
     gc.collect()
     asyncio.create_task(webserver())
@@ -60,7 +59,6 @@ async def main():
         await asyncio.sleep(1)  # keep up server
 
 try:
-    #  from async_webserver import *
     asyncio.run(main())
 except KeyboardInterrupt:
     print('Interrupted!')

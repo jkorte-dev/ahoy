@@ -1,13 +1,17 @@
 from ahoy_cfg import ahoy_config
 from hoymiles import HoymilesDTU
+import asyncio
 import hoymiles.uoutputs
 
 
 def init_network_time():
-    import ntptime
     import wlan
     wlan.do_connect()
-    ntptime.settime()
+    try:
+        import ntptime
+        ntptime.settime()
+    except OSError:
+        print('failed to set ntp time')
 
 
 def result_handler(result, inverter):
@@ -24,6 +28,6 @@ dtu = HoymilesDTU(ahoy_cfg=ahoy_config,
                   status_handler=result_handler,
                   info_handler=lambda result, inverter: print("hw_info", result, result.to_dict()))
 
-import asyncio
+
 asyncio.run(dtu.start())
 

@@ -9,6 +9,10 @@
       "http://localhost:8000/hoymiles/uoutputs.py"
     ],
     [
+      "hoymiles/uwebserver.py",
+      "http://localhost:8000/hoymiles/uwebserver.py"
+    ],
+    [
       "hoymiles/websunsethandler.py",
       "http://localhost:8000/hoymiles/websunsethandler.py"
     ],
@@ -36,6 +40,14 @@
     ],
     [
       "logging",
+      "latest"
+    ],
+    [
+      "umqtt.robust",
+      "latest"
+    ],
+    [
+      "ssd1306",
       "latest"
     ]
   ],

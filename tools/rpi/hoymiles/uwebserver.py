@@ -83,10 +83,8 @@ _start_page = """
         fetch(window.location + 'data')
             .then(response => response.json())
             .then(data => {
-            //data = JSON.parse(text)
             let now = new Date();
             showData(data)
-            //document.getElementById('content').innerText = data.yield_total + ' ' + now ;
         });
     }
 
@@ -159,7 +157,7 @@ _start_page = """
     }
 </script>
 <div id="content">
-  DTU startet waiting for data ....
+  DTU started waiting for data ....
 </div>
 
 </body>
@@ -169,9 +167,9 @@ _start_page = """
 
 class WebServer:
 
-    dtu_data = {'last': {'dtu_ser': 99978563001, 'event_count': 10, 'time': datetime.now(timezone.utc), 'inverter_name': 'HM600', 'yield_total': 1305799.0, 'temperature': 18.6, 'powerfactor': 1.0, 'yield_today': 207.0, 'phases': [{'frequency': 50.01, 'current': 0.9599999, 'reactive_power': 0.2, 'power': 226.3, 'voltage': 236.3}], 'efficiency': 95.49, 'strings': [{'energy_daily': 67, 'name': 'String 1 left', 'power': 110.3, 'current': 3.06, 'energy_total': 580076, 'irradiation': 29.026, 'voltage': 36.1}, {'energy_daily': 140, 'name': 'String 2 right', 'power': 126.7, 'current': 3.7, 'energy_total': 725723, 'irradiation': 33.342, 'voltage': 34.3}]}}
+    dtu_data = {'last': {'time': datetime.now(timezone.utc), 'inverter_name': 'HM600', 'yield_total': 1305799.0, 'temperature': 18.6, 'powerfactor': 1.0, 'yield_today': 207.0, 'phases': [{'frequency': 50.01, 'current': 0.9599999, 'power': 226.3, 'voltage': 236.3}], 'efficiency': 95.49, 'strings': [{'energy_daily': 67, 'name': 'Panel1', 'power': 110.3, 'current': 3.06, 'energy_total': 580076, 'irradiation': 29.026, 'voltage': 36.1}, {'energy_daily': 140, 'name': 'Panel2', 'power': 126.7, 'current': 3.7, 'energy_total': 725723, 'irradiation': 33.342, 'voltage': 34.3}]}}
 
-    def __init__(self, data_provider=None, start_page="web/index.html", wifi_mode=network.STA_IF):
+    def __init__(self, data_provider=None, start_page=None, wifi_mode=network.STA_IF):
         if data_provider is None:
             self.data_provider = self
         else:
@@ -203,11 +201,14 @@ class WebServer:
         else:
             try:  # serve file
                 header = 'HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n'
-                print('serving', self.start_page)
-                #file = open(self.start_page, "r")
-                #response = file.read()
-                #file.close()
-                response = _start_page
+                if self.start_page:
+                    print('serving', self.start_page)
+                    file = open(self.start_page, "r")
+                    response = file.read()
+                    file.close()
+                else:
+                    print('serving default request')
+                    response = _start_page
             except Exception as e:
                 header = "HTTP/1.1 404 Not Found\n"
                 response = "<html><body><h1>File not found</h1></body></html>"
@@ -221,13 +222,11 @@ class WebServer:
 
     async def webserver(self):
         import wlan
-        #import ntptime
 
         if self.wifi_mode == network.AP_IF:
             wlan.start_ap(ssid='MPY-DTU')
         elif self.wifi_mode == network.STA_IF:
             wlan.do_connect()
-            #ntptime.settime() # todo make resilient
         else:
             print("no valid wifi config. skipping webserver")
             return     # no valid wifi!
@@ -237,7 +236,7 @@ class WebServer:
         url = f'http://{ip}:{port}'
 
         asyncio.create_task(asyncio.start_server(self.serve_client, ip, port))
-        print(f'WebServer startet: {url}')
+        print(f'WebServer started: {url}')
         while True:
             await asyncio.sleep(1)  # keep up server
 
@@ -249,6 +248,4 @@ class WebServer:
 
 
 if __name__ == '__main__':
-    WebServer().start()
-else:
-    print('skipped __main__')
+    WebServer(start_page="web/index.html").start()
