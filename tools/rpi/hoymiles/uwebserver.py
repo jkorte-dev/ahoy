@@ -169,7 +169,7 @@ _start_page = """
 
 class WebServer:
 
-    dtu_data = {'last': {'dtu_ser': 99978563001, 'event_count': 10, 'time': datetime.now(timezone.utc), 'inverter_ser': 114182941658, 'inverter_name': 'garage', 'yield_total': 1305799.0, 'temperature': 18.6, 'powerfactor': 1.0, 'yield_today': 207.0, 'phases': [{'frequency': 50.01, 'current': 0.9599999, 'reactive_power': 0.2, 'power': 226.3, 'voltage': 236.3}], 'efficiency': 95.49, 'strings': [{'energy_daily': 67, 'name': 'String 1 left', 'power': 110.3, 'current': 3.06, 'energy_total': 580076, 'irradiation': 29.026, 'voltage': 36.1}, {'energy_daily': 140, 'name': 'String 2 right', 'power': 126.7, 'current': 3.7, 'energy_total': 725723, 'irradiation': 33.342, 'voltage': 34.3}]}}
+    dtu_data = {'last': {'dtu_ser': 99978563001, 'event_count': 10, 'time': datetime.now(timezone.utc), 'inverter_name': 'HM600', 'yield_total': 1305799.0, 'temperature': 18.6, 'powerfactor': 1.0, 'yield_today': 207.0, 'phases': [{'frequency': 50.01, 'current': 0.9599999, 'reactive_power': 0.2, 'power': 226.3, 'voltage': 236.3}], 'efficiency': 95.49, 'strings': [{'energy_daily': 67, 'name': 'String 1 left', 'power': 110.3, 'current': 3.06, 'energy_total': 580076, 'irradiation': 29.026, 'voltage': 36.1}, {'energy_daily': 140, 'name': 'String 2 right', 'power': 126.7, 'current': 3.7, 'energy_total': 725723, 'irradiation': 33.342, 'voltage': 34.3}]}}
 
     def __init__(self, data_provider=None, start_page="web/index.html", wifi_mode=network.STA_IF):
         if data_provider is None:
@@ -198,7 +198,6 @@ class WebServer:
         if request.find('/data') == 6:
             print('=> data requested')
             header = 'HTTP/1.1 200 OK\r\nContent-type: application/json\r\n\r\n'
-            #_json = {'dtu_ser': 99978563001, 'event_count': 10, 'time': '2024-12-12 20:34:45', 'inverter_ser': 114182941658, 'inverter_name': 'garage', 'yield_total': 1305799.0, 'temperature': 18.6, 'powerfactor': 1.0, 'yield_today': 207.0, 'phases': [{'frequency': 50.01, 'current': 0.9599999, 'reactive_power': 0.2, 'power': 226.3, 'voltage': 236.3}], 'efficiency': 95.49, 'strings': [{'energy_daily': 67, 'name': 'String 1 left', 'power': 110.3, 'current': 3.06, 'energy_total': 580076, 'irradiation': 29.026, 'voltage': 36.1}, {'energy_daily': 140, 'name': 'String 2 right', 'power': 126.7, 'current': 3.7, 'energy_total': 725723, 'irradiation': 33.342, 'voltage': 34.3}]}
             json = self.data_provider.get_data()
             response = f"{json}"
         else:
