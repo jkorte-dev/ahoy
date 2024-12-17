@@ -6,7 +6,7 @@ Hoymiles output plugin library
 """
 
 from datetime import datetime, timezone
-from hoymiles.decoders import StatusResponse, HardwareInfoResponse
+from hoymiles.decoders import StatusResponse, HardwareInfoResponse # todo get rid of this imports
 import framebuf
 from time import sleep
 import logging
@@ -19,6 +19,24 @@ class OutputPluginFactory:
 
     def store_status(self, response, **params):
         raise NotImplementedError('The current output plugin does not implement store_status')
+
+
+def oled_text_scaled(oled, text, x, y, scale, character_width=8, character_height=8):
+    # temporary buffer for the text
+    width = character_width * len(text)
+    height = character_height
+    temp_buf = bytearray(width * height)
+    temp_fb = framebuf.FrameBuffer(temp_buf, width, height, framebuf.MONO_VLSB)
+
+    # write text to the temporary framebuffer
+    temp_fb.text(text, 0, 0, 1)
+
+    # scale and write to the display
+    for i in range(width):
+        for j in range(height):
+            pixel = temp_fb.pixel(i, j)
+            if pixel:  # If the pixel is set, draw a larger rectangle
+                oled.fill_rect(x + i * scale, y + j * scale, scale, scale, 1)
 
 
 class DisplayPlugin(OutputPluginFactory):
@@ -54,9 +72,12 @@ class DisplayPlugin(OutputPluginFactory):
             splash = "Ahoy! DTU"
             self.font_size = 10  # fontsize fix 8 + 2 pixel
 
+            # extend display class
+            SSD1306_I2C.text_scaled = oled_text_scaled
+            scale = 2
             self.display = SSD1306_I2C(display_width, display_height, i2c)
             self.display.fill(0)
-            self.display.text(splash, ((display_width - len(splash)*(self.font_size-2)) // 2), (display_height // 2), 1)
+            self.display.text_scaled(splash, ((display_width - len(splash)*(self.font_size-2)) // 2), (display_height // 2) - self.font_size, scale)
             self.display.show()
 
         except Exception as e:
@@ -68,11 +89,16 @@ class DisplayPlugin(OutputPluginFactory):
 
         data = response.to_dict()
 
+        if data is not None:
+            self.display.fill(0)
+            self.display.show()
+
         phase_sum_power = 0
         if data['phases'] is not None:
             for phase in data['phases']:
                 phase_sum_power += phase['power']
-        self.show_value(0, f"     {phase_sum_power} W")
+        #self.show_value(0, f"     {phase_sum_power} W")
+        self.display.text_scaled(f" {phase_sum_power:0.0f}W", 14, 0, 2)   # todo cal center pos
         self.show_symbol(0, 'level')
         self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)  # todo show wifi symbol on wifi connect event
         if data['yield_today'] is not None:
@@ -93,14 +119,14 @@ class DisplayPlugin(OutputPluginFactory):
             print(value)
             return
         x = 0
-        y = slot * (self.display.height // 4)
+        y = slot * (self.display.height // 4) + 8  # shift down bit
         self.display.fill_rect(x, y, self.display.width, self.font_size, 0)  # clear data on display
         self.display.text(value, x, y, 1)
         self.display.show()
 
     def show_symbol(self, slot, sym, x=None, y=None):
         if slot:
-            y = slot * (self.display.height // 4)
+            y = slot * (self.display.height // 4) + 8  # shift down bit
         x = x if x else 0
         y = y if y else 0
         data = self.symbols.get(sym)

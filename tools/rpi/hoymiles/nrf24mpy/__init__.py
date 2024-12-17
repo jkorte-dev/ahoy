@@ -4,8 +4,7 @@ from errno import ETIMEDOUT
 from machine import Pin, SPI
 from .nrf24_mp import RF24
 
-HOYMILES_DEBUG_LOGGING = False
-
+from hoymiles import HOYMILES_DEBUG_LOGGING
 
 # https://github.com/nRF24/RF24/blob/3bbcce8d18b32be0b350978472b53830e3ad1285/nRF24L01.h
 
