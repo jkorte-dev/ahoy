@@ -98,41 +98,45 @@ class DisplayPlugin(OutputPluginFactory):
             for phase in data['phases']:
                 phase_sum_power += phase['power']
         #self.show_value(0, f"     {phase_sum_power} W")
-        self.display.text_scaled(f" {phase_sum_power:0.0f}W", 14, 0, 2)   # todo cal center pos
+        _val = f"{phase_sum_power:0.0f}W"
+        (x1, y1) = self._slot_pos(0, length=len(_val))
+        _scale = 2
+        self.display.text_scaled(_val, x1 - _scale*(self.font_size-2), 0, _scale)
         self.show_symbol(0, 'level')
         self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)  # todo show wifi symbol on wifi connect event
         if data['yield_today'] is not None:
             yield_today = data['yield_today']
-            self.show_value(1, f"     {yield_today} Wh")
-            self.show_symbol(1, "cal", x=15)
+            self.show_value(1, f"{yield_today} Wh", x=40)  # 16+3*8
+            self.show_symbol(1, "cal", x=16)
         if data['yield_total'] is not None:
             yield_total = round(data['yield_total'] / 1000)
             self.show_value(2, f"     {yield_total:01d} kWh")
-            self.show_symbol(2, "sum", x=15)
+            self.show_symbol(2, "sum", x=16)
         if data['time'] is not None:
             timestamp = data['time']  # datetime.isoformat()
             Y, M, D, h, m, s, us, tz, fold = timestamp.tuple()
             self.show_value(3, f' {D:02d}.{M:02d} {h:02d}:{m:02d}:{s:02d}')
 
-    def show_value(self, slot, value):  # todo feature center / align
+    def show_value(self, slot, value, x=0, y=None, center=False):
         if self.display is None:
             print(value)
             return
-        x = 0
-        y = slot * (self.display.height // 4) + 8  # shift down bit
+        x, y = self._slot_pos(slot, x, y, length=len(value) if center else None)
         self.display.fill_rect(x, y, self.display.width, self.font_size, 0)  # clear data on display
         self.display.text(value, x, y, 1)
         self.display.show()
 
     def show_symbol(self, slot, sym, x=None, y=None):
-        if slot:
-            y = slot * (self.display.height // 4) + 8  # shift down bit
-        x = x if x else 0
-        y = y if y else 0
         data = self.symbols.get(sym)
         if data:
+            x, y = self._slot_pos(slot, x, y)
             self.display.blit(framebuf.FrameBuffer(data, self.font_size, self.font_size, framebuf.MONO_HLSB), x, y)
             self.display.show()
+
+    def _slot_pos(self, slot, x=None, y=None, length=None):
+        x = x if x else ((self.display.width - length*(self.font_size-2)) // 2) if length else 0
+        y = y if y else slot * (self.display.height // 4) + 8 if slot else 0
+        return x, y
 
 
 class MqttPlugin(OutputPluginFactory):
