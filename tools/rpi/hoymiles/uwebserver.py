@@ -1,14 +1,9 @@
 import asyncio
 import network
 from datetime import datetime, timezone
+import time
 
-_start_page = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-    <style>
+_css = """
     #resp-table, .resp-table{
         width: 100%;
         display: table;
@@ -43,10 +38,7 @@ _start_page = """
     .cell-lightblue{
         background: deepskyblue;
         text-align: center;
-    }
-    .resp-table-half{
-        width: 50%;
-        display: table;
+        display: block;
     }
     .half{
         width: 50%;
@@ -54,12 +46,12 @@ _start_page = """
         margin-top: 10px;
         display: inline-block;
     }
-    </style>
+    #content{
+        margin: 5px;
+    }
+"""
 
-</head>
-
-<body>
-<script>
+_js = """
     const spec = {
         'temperature': ['Temp. ', ' °C'],
         'power': ['Power ', ' W'],
@@ -77,7 +69,7 @@ _start_page = """
     const specMap = new Map(Object.entries(spec));
 
     document.addEventListener('DOMContentLoaded', function() {
-        window.setInterval(updateContent, 5000);
+        window.setInterval(updateContent, 10000);
     });
     function updateContent() {
         fetch(window.location + 'data')
@@ -155,11 +147,19 @@ _start_page = """
             divBody.appendChild(divRow);
         });
     }
-</script>
+"""
+
+_start_page = """
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/style.css">
+    <script src="/script.js"></script>
+</head>
+<body>
 <div id="content">
   DTU started waiting for data ....
 </div>
-
 </body>
 </html>
 """
@@ -176,6 +176,7 @@ class WebServer:
             self.data_provider = data_provider
         self.start_page = start_page
         self.wifi_mode = wifi_mode
+        self.server = None
 
     def get_data(self):
         _last = self.dtu_data['last']
@@ -186,6 +187,7 @@ class WebServer:
         return f"{_last}".replace('\'', '\"')
 
     async def serve_client(self, reader, writer):
+        start_time = time.ticks_us()
         request_line = await reader.readline()
         print("Request:", request_line)
         # We are not interested in HTTP request headers, skip them
@@ -194,10 +196,21 @@ class WebServer:
 
         request = str(request_line)
         if request.find('/data') == 6:
-            print('=> data requested')
+            # print('=> data requested')
             header = 'HTTP/1.1 200 OK\r\nContent-type: application/json\r\n\r\n'
             json = self.data_provider.get_data()
             response = f"{json}"
+        elif request.find('/style.css') == 6:
+            # print('=> css requested')
+            header = 'HTTP/1.1 200 OK\r\nContent-type: text/css\r\n\r\n'
+            response = _css
+        elif request.find('/script.js') == 6:
+            # print('=> css requested')
+            header = 'HTTP/1.1 200 OK\r\nContent-type: text/javascript\r\n\r\n'
+            response = _js
+        elif request.find('/favicon.ico') == 6:
+            header = 'HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n'
+            response = "n/a"
         else:
             try:  # serve file
                 header = 'HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n'
@@ -207,7 +220,7 @@ class WebServer:
                     response = file.read()
                     file.close()
                 else:
-                    print('serving default request')
+                    # print('serving default request')
                     response = _start_page
             except Exception as e:
                 header = "HTTP/1.1 404 Not Found\n"
@@ -217,6 +230,7 @@ class WebServer:
         writer.write(header)
         writer.write(response)
 
+        print("elapsed time [µs]: ",  time.ticks_us() - start_time)
         await writer.drain()
         await writer.wait_closed()
 
@@ -235,16 +249,32 @@ class WebServer:
         port = 80
         url = f'http://{ip}:{port}'
 
-        asyncio.create_task(asyncio.start_server(self.serve_client, ip, port))
+        self.server = await asyncio.start_server(self.serve_client, ip, port)
+        #asyncio.create_task()
         print(f'WebServer started: {url}')
         while True:
-            await asyncio.sleep(1)  # keep up server
+            try:
+                if hasattr(self.server, 'serve_forever'):
+                    try:
+                        await self.server.serve_forever()
+                    except asyncio.CancelledError:
+                        pass
+                await self.server.wait_closed()
+                break
+            except AttributeError:
+                await asyncio.sleep(0.1)
 
     def start(self):
         try:
             asyncio.run(self.webserver())
+        except KeyboardInterrupt:
+            self.stop()
         finally:
             asyncio.new_event_loop()
+
+    def stop(self):
+        if self.server is not None:
+            self.server.close()
 
 
 if __name__ == '__main__':
