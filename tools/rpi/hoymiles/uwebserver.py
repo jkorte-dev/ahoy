@@ -254,15 +254,11 @@ class WebServer:
         print(f'WebServer started: {url}')
         while True:
             try:
-                if hasattr(self.server, 'serve_forever'):
-                    try:
-                        await self.server.serve_forever()
-                    except asyncio.CancelledError:
-                        pass
                 await self.server.wait_closed()
                 break
             except AttributeError:
                 await asyncio.sleep(0.1)
+            await asyncio.sleep(1)  # keep up server
 
     def start(self):
         try:
