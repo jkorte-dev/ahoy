@@ -130,10 +130,10 @@ The following command will run a micropython script to poll the inverter and out
 mpremote run hoymiles_mpy.py
 ```
 
-or even more experimental than above with ugly minimalistic web interface:
+or even more experimental than above with ugly minimalistic web interface  (pico 2 W only):
 
 ```code
-mpremote run hoymiles_async.py
+mpremote run hoymiles_exp.py
 ```
 
 Caveats
@@ -143,8 +143,12 @@ Caveats
 Be prepared for crashes and incomplete documentation.**
 
 If you run out of memory install parts of the hoymiles modules as mpy modules using `mpy-cross`. I think esp32s2 is a good choice to start with.
+Inverter polling is very bad on rp2350 :-(
 
 *Only Hoymiles HM series supported.*
+
+
+
 
 Modifications
 -------------
@@ -169,6 +173,12 @@ Output plugins so far:
 - MQTT
 - Blink LED
 
+TODOs
+------
+- make HoymilesNRF.receive() non-blocking
+- yield more time for async webserver
+- split request to load SPA
+- find out why polling inverter is so bad with rp2350
 
 References
 ----------

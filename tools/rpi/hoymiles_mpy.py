@@ -3,6 +3,8 @@ from hoymiles import HoymilesDTU
 import asyncio
 import hoymiles.uoutputs
 
+#ahoy_config['sunset'] = {'disabled': True}
+
 
 def init_network_time():
     import wlan
@@ -18,11 +20,14 @@ def result_handler(result, inverter):
     print(result.to_dict())
     display.store_status(result)
     mqtt.store_status(result)
+    blink.store_status(result)
 
 
 init_network_time()
-mqtt = hoymiles.uoutputs.MqttPlugin(ahoy_config.get('mqtt', {'host': 'homematic-ccu2'}))
+
 display = hoymiles.uoutputs.DisplayPlugin({'i2c_num': 0})
+mqtt = hoymiles.uoutputs.MqttPlugin(ahoy_config.get('mqtt', {'host': 'homematic-ccu2'}))
+blink = hoymiles.uoutputs.BlinkPlugin(ahoy_config.get('blink'))  # {'led_pin': 7, 'led_high_on': True}
 
 dtu = HoymilesDTU(ahoy_cfg=ahoy_config,
                   status_handler=result_handler,

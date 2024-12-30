@@ -89,7 +89,7 @@ class DisplayPlugin(OutputPluginFactory):
 
         data = response.to_dict()
 
-        if data is not None:
+        if data is not None and self.display is not None:
             self.display.fill(0)
             self.display.show()
 
@@ -127,6 +127,8 @@ class DisplayPlugin(OutputPluginFactory):
         self.display.show()
 
     def show_symbol(self, slot, sym, x=None, y=None):
+        if self.display is None:
+            return
         data = self.symbols.get(sym)
         if data:
             x, y = self._slot_pos(slot, x, y)
@@ -263,6 +265,7 @@ class BlinkPlugin(OutputPluginFactory):
         self.high_on = config.get('led_high_on', True)
         if led_pin is None:
             self.led = None
+            print("blink disabled no led configured.")
         else:
             from machine import Pin
             self.led = Pin(led_pin, Pin.OUT)
