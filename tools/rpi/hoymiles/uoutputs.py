@@ -89,7 +89,11 @@ class DisplayPlugin(OutputPluginFactory):
 
         data = response.to_dict()
 
-        if data is not None and self.display is not None:
+        if data is None:
+            print("Invalid response!")
+            return
+
+        if self.display is not None:
             self.display.fill(0)
             self.display.show()
 
@@ -97,11 +101,8 @@ class DisplayPlugin(OutputPluginFactory):
         if data['phases'] is not None:
             for phase in data['phases']:
                 phase_sum_power += phase['power']
-        #self.show_value(0, f"     {phase_sum_power} W")
-        _val = f"{phase_sum_power:0.0f}W"
-        (x1, y1) = self._slot_pos(0, length=len(_val))
-        _scale = 2
-        self.display.text_scaled(_val, x1 - _scale*(self.font_size-2), 0, _scale)
+        # self.show_value(0, f"     {phase_sum_power} W")
+        self.show_value(0, f"{phase_sum_power:0.0f}W", center=True, large=True)
         self.show_symbol(0, 'level')
         self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)  # todo show wifi symbol on wifi connect event
         if data['yield_today'] is not None:
@@ -117,13 +118,17 @@ class DisplayPlugin(OutputPluginFactory):
             Y, M, D, h, m, s, us, tz, fold = timestamp.tuple()
             self.show_value(3, f' {D:02d}.{M:02d} {h:02d}:{m:02d}:{s:02d}')
 
-    def show_value(self, slot, value, x=0, y=None, center=False):
+    def show_value(self, slot, value, x=None, y=None, center=False, large=False):
         if self.display is None:
             print(value)
             return
         x, y = self._slot_pos(slot, x, y, length=len(value) if center else None)
-        self.display.fill_rect(x, y, self.display.width, self.font_size, 0)  # clear data on display
-        self.display.text(value, x, y, 1)
+        if large:
+            _scale = 2
+            self.display.text_scaled(value, x - _scale*(self.font_size-2), y, _scale)
+        else:
+            self.display.fill_rect(x, y, self.display.width, self.font_size, 0)  # clear data on display
+            self.display.text(value, x, y, 1)
         self.display.show()
 
     def show_symbol(self, slot, sym, x=None, y=None):

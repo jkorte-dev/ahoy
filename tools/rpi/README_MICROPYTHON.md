@@ -177,7 +177,6 @@ TODOs
 ------
 - make HoymilesNRF.receive() non-blocking
 - yield more time for async webserver
-- split request to load SPA
 - find out why polling inverter is so bad with rp2350
 
 References
