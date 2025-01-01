@@ -89,6 +89,16 @@ mpremote cp hoymiles/websunsethandler.py   :hoymiles/
 mpremote cp hoymiles/uwebserver.py         :hoymiles/
 ```
 
+Alternative installation 
+-------------------------
+
+The module can also be installed as local mip package with 
+
+```
+python3 -m http.server
+mpremote mip install --target / http://localhost:8000/package.json
+```
+
 Example Run
 -----------
 Minimal code to communicate with a hoymiles inverter is:
