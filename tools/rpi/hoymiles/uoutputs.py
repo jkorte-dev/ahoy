@@ -100,7 +100,8 @@ class DisplayPlugin(OutputPluginFactory):
         phase_sum_power = 0
         if data['phases'] is not None:
             for phase in data['phases']:
-                phase_sum_power += phase['power']
+                if phase['power'] is not None:
+                    phase_sum_power += phase['power']
         # self.show_value(0, f"     {phase_sum_power} W")
         self.show_value(0, f"{phase_sum_power:0.0f}W", center=True, large=True)
         self.show_symbol(0, 'level')
@@ -181,7 +182,7 @@ class MqttPlugin(OutputPluginFactory):
 
         topic = params.get('topic', None)
         if not topic:
-            topic = f'{data.get("inverter_name", "hoymiles")}/{data.get("inverter_ser", None)}'
+            topic = f'{data.get("inverter_name", "hoymiles")}/{data.get("inverter_ser", "unkown")}'
 
         if isinstance(response, StatusResponse):
 
@@ -274,12 +275,22 @@ class BlinkPlugin(OutputPluginFactory):
         else:
             from machine import Pin
             self.led = Pin(led_pin, Pin.OUT)
+            if config.get('neopixel', False):
+                from neopixel import NeoPixel
+                self.np = NeoPixel(self.led, 1)
 
     def store_status(self, response, **params):
         if self.led:
-            self.led.value(self.high_on)
-            sleep(0.05)  # keep ist short because it is blocking
-            self.led.value(not self.high_on)  # self.led.toggle() not always supported
+            if self.np:
+                self.np[0] = (255, 0, 0)
+                self.np.write()
+                sleep(0.05)
+                self.np[0] = (0, 0, 0)
+                self.np.write()
+            else:
+                self.led.value(self.high_on)
+                sleep(0.05)  # keep it short because it is blocking
+                self.led.value(not self.high_on)  # self.led.toggle() not always supported
 
 
 class WebPlugin(OutputPluginFactory):

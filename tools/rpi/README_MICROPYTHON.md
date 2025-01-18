@@ -2,7 +2,7 @@ Communicating with Hoymiles Micro-Inverters using Micropython
 =======================================================================
 
 The `hoymiles` package in this directory is an adopted version of Ahoy CPython tools to communicate with Hoymiles micro-inverters [0].
-It has been modified, refactored and extended to run on Micropython (tested so far on esp32c3, esp32s2, esp32, rp2350 (pico2 w))
+It has been modified, refactored and extended to run on Micropython (tested so far on esp32c3, esp32s2, esp32, rp2350 (pico2 w), esp32c6)
 It even runs on microcontrollers without wifi support, though it might not be very useful.
 I haven't tried esp8266 and do not recommend it because of hardware limitations, thought it might work.
 Parts of the code is shared between CPython and Micropython. The code runs on Linux based Raspberry Pi hardware as well but this might change (Tested with Raspberry Pi Zero W so far).
@@ -152,7 +152,7 @@ Caveats
 **This is work in progress. In this stage it is more or less a proof of concept and not stable at all, not even thoroughly tested.
 Be prepared for crashes and incomplete documentation.**
 
-If you run out of memory install parts of the hoymiles modules as mpy modules using `mpy-cross`. I think esp32s2 is a good choice to start with.
+If you run out of memory install parts of the hoymiles modules as mpy modules using `mpy-cross`. I think esp32s2 is a good choice to start with, esp32c6 even better.
 Inverter polling is very bad on rp2350 :-(
 
 *Only Hoymiles HM series supported.*
@@ -181,7 +181,7 @@ Output plugins so far:
 
 - SSD1306 I2C display 
 - MQTT
-- Blink LED
+- Blink LED / WS2812 NeoPixel
 
 TODOs
 ------
