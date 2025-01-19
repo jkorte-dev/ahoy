@@ -33,6 +33,10 @@ def result_handler(result, inverter):
     print("mem_free:", gc.mem_free())
 
 
+def event_dispatcher(event):
+    print(event)
+
+
 init_network_time()
 
 display = hoymiles.uoutputs.DisplayPlugin({'i2c_num': 0})
@@ -41,8 +45,7 @@ blink = hoymiles.uoutputs.BlinkPlugin(ahoy_config.get('blink', {}))  # {'led_pin
 
 dtu = HoymilesDTU(ahoy_cfg=ahoy_config,
                   status_handler=result_handler,
-                  info_handler=lambda result, inverter: print("hw_info", result, result.to_dict()))
-
+                  info_handler=lambda result, inverter: print("hw_info", result, result.to_dict()), event_handler=event_dispatcher)
 
 asyncio.run(dtu.start())
 

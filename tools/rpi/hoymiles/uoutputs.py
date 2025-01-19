@@ -45,7 +45,7 @@ class DisplayPlugin(OutputPluginFactory):
                'cal': bytearray(b'\x7f\x80\x7f\x80@\x80D\x80L\x80T\x80D\x80D\x80@\x80\x7f\x80'),
                'wifi': bytearray(b'\xf8\x00\x0e\x00\xe3\x009\x80\x0c\x80\xe6\xc02@\x1b@\xc9@\xc9@'),
                'level': bytearray(b'\x00\x00\x01\x80\x01\x80\x01\x80\r\x80\r\x80\r\x80m\x80m\x80m\x80'),
-               'blank': bytearray([0x00] * 20)}
+               'blank': bytearray([0x00] * 20)}  # todo symbols: sun, moon https://www.piskelapp.com/
 
     def __init__(self, config, **params):
         super().__init__(**params)
@@ -97,6 +97,7 @@ class DisplayPlugin(OutputPluginFactory):
             self.display.fill(0)
             self.display.show()
 
+        # todo event: wifi connect, sleeping, wakeup, offline
         phase_sum_power = 0
         if data['phases'] is not None:
             for phase in data['phases']:
@@ -105,7 +106,7 @@ class DisplayPlugin(OutputPluginFactory):
         # self.show_value(0, f"     {phase_sum_power} W")
         self.show_value(0, f"{phase_sum_power:0.0f}W", center=True, large=True)
         self.show_symbol(0, 'level')
-        self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)  # todo show wifi symbol on wifi connect event
+        self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)  # todo event: show wifi symbol on wifi connect
         if data['yield_today'] is not None:
             yield_today = data['yield_today']
             self.show_value(1, f"{yield_today} Wh", x=40)  # 16+3*8

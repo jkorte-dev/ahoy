@@ -355,6 +355,7 @@ def compose_send_time_payload(cmd_id, alarm_id=0):
     """
     Build set time request packet
 
+    :param alarm_id:
     :param cmd_id to request
     :type cmd_id: uint8
     :return: payload
@@ -614,7 +615,7 @@ class InfoCommands:
 
 
 class HoymilesDTU:
-    def __init__(self, ahoy_cfg, mqtt_clt=None, event_msg_idx=None, cmd_queue=None, status_handler=None, info_handler=None):
+    def __init__(self, ahoy_cfg, mqtt_clt=None, event_msg_idx=None, cmd_queue=None, status_handler=None, info_handler=None, event_handler=None):
         if cmd_queue is None:
             cmd_queue = {}
         if event_msg_idx is None:
@@ -625,6 +626,7 @@ class HoymilesDTU:
         self.command_queue = cmd_queue
         self.status_handler = status_handler
         self.info_handler = info_handler
+        self.event_handler = event_handler
         self.hmradio = None
         if sys.platform == 'linux':
             from .nrf24 import HoymilesNRF
@@ -650,7 +652,7 @@ class HoymilesDTU:
         elif sunset_cfg and not sys.platform == 'linux':
             # float precision is not sufficient to cal sunset/sunrise we use web api instead
             from hoymiles.websunsethandler import SunsetHandler
-            self.sunset = SunsetHandler(sunset_cfg)
+            self.sunset = SunsetHandler(sunset_cfg, self.event_handler)
 
         self.loop_interval = ahoy_cfg.get('interval', 2)
         self.transmit_retries = ahoy_cfg.get('transmit_retries', 5)
@@ -679,7 +681,7 @@ class HoymilesDTU:
                     if HOYMILES_DEBUG_LOGGING:
                         logging.info(f'Poll inverter name={inverter["name"]} ser={inverter["serial"]}')
                     try:
-                        await asyncio.wait_for(self.poll_inverter(inverter, do_init), timeout=5*60*60)  # 5 min
+                        await asyncio.wait_for(self.poll_inverter(inverter, do_init), timeout=self.transmit_retries*2)
                     except asyncio.TimeoutError as e:
                         print(f'TimoutError while polling inverter {inverter["name"]} {e}')
                 do_init = False
@@ -717,7 +719,7 @@ class HoymilesDTU:
 
         # Put all queued commands for current inverter on air
         while len(self.command_queue[inv_str]) > 0:
-            payload = self.command_queue[inv_str].pop(0)  ## Sub.Cmd
+            payload = self.command_queue[inv_str].pop(0)  # Sub.Cmd
             print("q", end="")  # todo remove debug
 
             # Send payload {ttl}-times until we get at least one reponse
