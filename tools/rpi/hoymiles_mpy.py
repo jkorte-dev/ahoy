@@ -17,10 +17,11 @@ def init_network_time():
         try:
             import ntptime
             ntptime.settime()
-            init=0
+            init = 0
         except OSError:
-            print('failed to set ntp time')
             init -= 1
+            if init == 0:
+                print('Failed to set ntp time')
             time.sleep(1)
     gc.collect()
 

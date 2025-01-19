@@ -21,31 +21,15 @@ class OutputPluginFactory:
         raise NotImplementedError('The current output plugin does not implement store_status')
 
 
-def oled_text_scaled(oled, text, x, y, scale, character_width=8, character_height=8):
-    # temporary buffer for the text
-    width = character_width * len(text)
-    height = character_height
-    temp_buf = bytearray(width * height)
-    temp_fb = framebuf.FrameBuffer(temp_buf, width, height, framebuf.MONO_VLSB)
-
-    # write text to the temporary framebuffer
-    temp_fb.text(text, 0, 0, 1)
-
-    # scale and write to the display
-    for i in range(width):
-        for j in range(height):
-            pixel = temp_fb.pixel(i, j)
-            if pixel:  # If the pixel is set, draw a larger rectangle
-                oled.fill_rect(x + i * scale, y + j * scale, scale, scale, 1)
-
-
 class DisplayPlugin(OutputPluginFactory):
     display = None
+    # symbols 10x10 created with https://www.piskelapp.com/ converted png with gimp to 1 bit b/w pbm files
     symbols = {'sum': bytearray(b'\x00\x00\x7f\x80`\x800\x00\x18\x00\x0c\x00\x18\x000\x00`\x80\x7f\x80'),
                'cal': bytearray(b'\x7f\x80\x7f\x80@\x80D\x80L\x80T\x80D\x80D\x80@\x80\x7f\x80'),
                'wifi': bytearray(b'\xf8\x00\x0e\x00\xe3\x009\x80\x0c\x80\xe6\xc02@\x1b@\xc9@\xc9@'),
                'level': bytearray(b'\x00\x00\x01\x80\x01\x80\x01\x80\r\x80\r\x80\r\x80m\x80m\x80m\x80'),
-               'blank': bytearray([0x00] * 20)}  # todo symbols: sun, moon https://www.piskelapp.com/
+               'moon': bytearray(b'\x1f\xc0?\x80\x7f\x00\xfe\x00\xfe\x00\xfe\x00\xfe\x00\x7f\x00?\x80\x1f\xc0'),
+               'blank': bytearray([0x00] * 20)}  # todo symbols: sun https://www.piskelapp.com/
 
     def __init__(self, config, **params):
         super().__init__(**params)
@@ -73,6 +57,23 @@ class DisplayPlugin(OutputPluginFactory):
             self.font_size = 10  # fontsize fix 8 + 2 pixel
 
             # extend display class
+            def oled_text_scaled(oled, text, x, y, scale, character_width=8, character_height=8):
+                # temporary buffer for the text
+                width = character_width * len(text)
+                height = character_height
+                temp_buf = bytearray(width * height)
+                temp_fb = framebuf.FrameBuffer(temp_buf, width, height, framebuf.MONO_VLSB)
+
+                # write text to the temporary framebuffer
+                temp_fb.text(text, 0, 0, 1)
+
+                # scale and write to the display
+                for i in range(width):
+                    for j in range(height):
+                        pixel = temp_fb.pixel(i, j)
+                        if pixel:  # If the pixel is set, draw a larger rectangle
+                            oled.fill_rect(x + i * scale, y + j * scale, scale, scale, 1)
+
             SSD1306_I2C.text_scaled = oled_text_scaled
             scale = 2
             self.display = SSD1306_I2C(display_width, display_height, i2c)
@@ -99,23 +100,21 @@ class DisplayPlugin(OutputPluginFactory):
 
         # todo event: wifi connect, sleeping, wakeup, offline
         phase_sum_power = 0
-        if data['phases'] is not None:
-            for phase in data['phases']:
-                if phase['power'] is not None:
-                    phase_sum_power += phase['power']
+        for phase in params.get('phases', []):
+            phase_sum_power += phase.get('power', 0)
         # self.show_value(0, f"     {phase_sum_power} W")
         self.show_value(0, f"{phase_sum_power:0.0f}W", center=True, large=True)
         self.show_symbol(0, 'level')
         self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)  # todo event: show wifi symbol on wifi connect
-        if data['yield_today'] is not None:
+        if data.get('yield_today') is not None:
             yield_today = data['yield_today']
             self.show_value(1, f"{yield_today} Wh", x=40)  # 16+3*8
             self.show_symbol(1, "cal", x=16)
-        if data['yield_total'] is not None:
+        if data.get('yield_total') is not None:
             yield_total = round(data['yield_total'] / 1000)
             self.show_value(2, f"     {yield_total:01d} kWh")
             self.show_symbol(2, "sum", x=16)
-        if data['time'] is not None:
+        if data.get('time') is not None:
             timestamp = data['time']  # datetime.isoformat()
             Y, M, D, h, m, s, us, tz, fold = timestamp.tuple()
             self.show_value(3, f' {D:02d}.{M:02d} {h:02d}:{m:02d}:{s:02d}')
@@ -188,13 +187,13 @@ class MqttPlugin(OutputPluginFactory):
         if isinstance(response, StatusResponse):
 
             # Global Head
-            if data['time'] is not None:
+            if data.get('time') is not None:
                 self._publish(f'{topic}/time', data['time'].isoformat())
 
             # AC Data
             phase_id = 0
             phase_sum_power = 0
-            phases_ac = data['phases']
+            phases_ac = data.get('phases')
             if phases_ac is not None:
                 for phase in phases_ac:
                     phase_name = f'ac/{phase_id}' if len(phases_ac) > 1 else 'ch0'
@@ -209,7 +208,7 @@ class MqttPlugin(OutputPluginFactory):
             # DC Data
             string_id = 1
             string_sum_power = 0
-            if data['strings'] is not None:
+            if data.get('strings') is not None:
                 for string in data['strings']:
                     string_name = f'ch{string_id}'
                     if 'name' in string:
@@ -225,21 +224,21 @@ class MqttPlugin(OutputPluginFactory):
                     string_sum_power += string['power']
 
             # Global
-            if data['temperature'] is not None:
+            if data.get('temperature') is not None:
                 self._publish(f'{topic}/Temp', data['temperature'])
 
             # Total
             self._publish(f'{topic}/total/P_DC', string_sum_power)
             self._publish(f'{topic}/total/P_AC', phase_sum_power)
-            if data['event_count'] is not None:
+            if data.get('event_count') is not None:
                 self._publish(f'{topic}/total/total_events', data['event_count'])
-            if data['powerfactor'] is not None:
+            if data.get('powerfactor') is not None:
                 self._publish(f'{topic}/total/PF_AC', data['powerfactor'])
-            if data['yield_total'] is not None:
+            if data.get('yield_total') is not None:
                 self._publish(f'{topic}/total/YieldTotal', data['yield_total'] / 1000)
-            if data['yield_today'] is not None:
+            if data.get('yield_today') is not None:
                 self._publish(f'{topic}/total/YieldToday', data['yield_today'] / 1000)
-            if data['efficiency'] is not None:
+            if data.get('efficiency') is not None:
                 self._publish(f'{topic}/total/Efficiency', data['efficiency'])
 
         elif isinstance(response, HardwareInfoResponse):
@@ -270,8 +269,9 @@ class BlinkPlugin(OutputPluginFactory):
         super().__init__(**params)
         led_pin = config.get('led_pin')
         self.high_on = config.get('led_high_on', True)
+        self.np = None
+        self.led = None
         if led_pin is None:
-            self.led = None
             print("blink disabled no led configured.")
         else:
             from machine import Pin
@@ -281,8 +281,8 @@ class BlinkPlugin(OutputPluginFactory):
                 self.np = NeoPixel(self.led, 1)
 
     def store_status(self, response, **params):
-        if self.led:
-            if self.np:
+        if self.led is not None:
+            if self.np is not None:
                 self.np[0] = (255, 0, 0)
                 self.np.write()
                 sleep(0.05)
