@@ -28,7 +28,7 @@ class DisplayPlugin(OutputPluginFactory):
                'cal': bytearray(b'\x7f\x80\x7f\x80@\x80D\x80L\x80T\x80D\x80D\x80@\x80\x7f\x80'),
                'wifi': bytearray(b'\xf8\x00\x0e\x00\xe3\x009\x80\x0c\x80\xe6\xc02@\x1b@\xc9@\xc9@'),
                'level': bytearray(b'\x00\x00\x01\x80\x01\x80\x01\x80\r\x80\r\x80\r\x80m\x80m\x80m\x80'),
-               'moon': bytearray(b'\x1f\xc0?\x80\x7f\x00\xfe\x00\xfe\x00\xfe\x00\xfe\x00\x7f\x00?\x80\x1f\xc0'),
+               'moon': bytearray(b'\x0f\x00\x1e\x00<\x00|\x00|\x00|\x00|\x00<\x00\x1e\x00\x0f\x00'),
                'blank': bytearray([0x00] * 20)}  # todo symbols: sun https://www.piskelapp.com/
 
     def __init__(self, config, **params):
@@ -100,8 +100,10 @@ class DisplayPlugin(OutputPluginFactory):
 
         # todo event: wifi connect, sleeping, wakeup, offline
         phase_sum_power = 0
-        for phase in params.get('phases', []):
-            phase_sum_power += phase.get('power', 0)
+        if data.get('phases') is not None:
+            for phase in data['phases']:
+                if phase['power'] is not None:
+                    phase_sum_power += phase['power']
         # self.show_value(0, f"     {phase_sum_power} W")
         self.show_value(0, f"{phase_sum_power:0.0f}W", center=True, large=True)
         self.show_symbol(0, 'level')
@@ -145,6 +147,10 @@ class DisplayPlugin(OutputPluginFactory):
         x = x if x else ((self.display.width - length*(self.font_size-2)) // 2) if length else 0
         y = y if y else slot * (self.display.height // 4) + 8 if slot else 0
         return x, y
+
+    def on_event(self, event):
+        if event.get('event_type', "") == 'suntimes.sleeping':
+            self.show_symbol(slot=1, sym='moon')
 
 
 class MqttPlugin(OutputPluginFactory):
@@ -292,6 +298,14 @@ class BlinkPlugin(OutputPluginFactory):
                 self.led.value(self.high_on)
                 sleep(0.05)  # keep it short because it is blocking
                 self.led.value(not self.high_on)  # self.led.toggle() not always supported
+
+    def on_event(self, event):
+        if self.np is not None:
+            self.np[0] = (0, 16, 0)
+            self.np.write()
+            sleep(0.05)
+            self.np[0] = (0, 0, 0)
+            self.np.write()
 
 
 class WebPlugin(OutputPluginFactory):

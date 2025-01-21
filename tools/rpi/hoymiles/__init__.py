@@ -681,9 +681,11 @@ class HoymilesDTU:
                     if HOYMILES_DEBUG_LOGGING:
                         logging.info(f'Poll inverter name={inverter["name"]} ser={inverter["serial"]}')
                     try:
-                        await asyncio.wait_for(self.poll_inverter(inverter, do_init), timeout=self.transmit_retries*2)
+                        if self.event_handler is not None:
+                            self.event_handler({'event_type': 'inverter.polling'})
+                        await asyncio.wait_for(self.poll_inverter(inverter, do_init), timeout=self.transmit_retries+2)
                     except asyncio.TimeoutError as e:
-                        print(f'TimoutError while polling inverter {inverter["name"]} {e}')
+                        print("t", end="")
                 do_init = False
 
                 if self.loop_interval > 0:

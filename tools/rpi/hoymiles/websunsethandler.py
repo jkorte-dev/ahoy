@@ -69,7 +69,7 @@ class SunsetHandler:
 
     def _send_suntimes_event(self, message, sleeping_time):
         if self.event_handler is not None:
-            self.event_handler({'event_type': 'suntimes', 'event': message, 'sleeping_time': sleeping_time})
+            self.event_handler({'event_type': f'suntimes.{message}', 'sleeping_time': sleeping_time})
 
 
 
