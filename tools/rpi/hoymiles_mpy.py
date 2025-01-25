@@ -35,7 +35,14 @@ def result_handler(result, inverter):
 
 
 def event_dispatcher(event):
-    print(event)
+    if event is None or not isinstance(event, type({})):
+        print("invalid event", event)
+        return
+    event_type = event.get('event_type', "")
+    if event_type == "inverter.polling" and blink is not None:
+        blink.on_event(event)
+    elif display is not None:
+        display.on_event(event)
 
 
 init_network_time()
@@ -46,7 +53,8 @@ blink = hoymiles.uoutputs.BlinkPlugin(ahoy_config.get('blink', {}))  # {'led_pin
 
 dtu = HoymilesDTU(ahoy_cfg=ahoy_config,
                   status_handler=result_handler,
-                  info_handler=lambda result, inverter: print("hw_info", result, result.to_dict()), event_handler=event_dispatcher)
+                  info_handler=lambda result, inverter: print("hw_info", result, result.to_dict()),
+                  event_handler=event_dispatcher)
 
 asyncio.run(dtu.start())
 

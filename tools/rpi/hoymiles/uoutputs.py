@@ -98,7 +98,6 @@ class DisplayPlugin(OutputPluginFactory):
             self.display.fill(0)
             self.display.show()
 
-        # todo event: wifi connect, sleeping, wakeup, offline
         phase_sum_power = 0
         if data.get('phases') is not None:
             for phase in data['phases']:
@@ -107,7 +106,7 @@ class DisplayPlugin(OutputPluginFactory):
         # self.show_value(0, f"     {phase_sum_power} W")
         self.show_value(0, f"{phase_sum_power:0.0f}W", center=True, large=True)
         self.show_symbol(0, 'level')
-        self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)  # todo event: show wifi symbol on wifi connect
+        self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)
         if data.get('yield_today') is not None:
             yield_today = data['yield_today']
             self.show_value(1, f"{yield_today} Wh", x=40)  # 16+3*8
@@ -149,8 +148,13 @@ class DisplayPlugin(OutputPluginFactory):
         return x, y
 
     def on_event(self, event):
+        # todo event: offline, polling (wifi up, sleeping, wakeup done)
         if event.get('event_type', "") == 'suntimes.sleeping':
             self.show_symbol(slot=1, sym='moon')
+        elif event.get('event_type', "") == "suntimes.wakeup":
+            self.show_symbol(slot=1, sym='blank')
+        elif event.get('event_type', "") == "wifi.up":
+            self.show_symbol(slot=0, sym='wifi', x=self.display.width-self.font_size)
 
 
 class MqttPlugin(OutputPluginFactory):
