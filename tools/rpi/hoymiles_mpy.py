@@ -4,7 +4,14 @@ import asyncio
 import hoymiles.uoutputs
 import gc
 
+use_wdt = False
 #ahoy_config['sunset'] = {'disabled': True}
+
+
+if use_wdt:
+    from machine import WDT, Timer
+    watchdog_timer = WDT(timeout=60000)  # 60s
+    keepalive_timer = Timer(2)
 
 
 def init_network_time():
@@ -31,7 +38,10 @@ def result_handler(result, inverter):
     display.store_status(result)
     mqtt.store_status(result)
     blink.store_status(result)
-    print("mem_free:", gc.mem_free())
+    #print("mem_free:", gc.mem_free())
+    if use_wdt:
+        watchdog_timer.feed()
+        keepalive_timer.deinit()
 
 
 def event_dispatcher(event):
@@ -43,11 +53,17 @@ def event_dispatcher(event):
         blink.on_event(event)
     elif display is not None:
         display.on_event(event)
+    if use_wdt:
+        if event_type == "suntimes.sleeping":
+            keepalive_timer.init(mode=Timer.PERIODIC, period=2000, callback=lambda t: (print('t', end=""), watchdog_timer.feed()))
+        elif event_type == "suntimes.wakeup":
+            keepalive_timer.deinit()
+        watchdog_timer.feed()
 
 
 init_network_time()
 
-display = hoymiles.uoutputs.DisplayPlugin({'i2c_num': 0})
+display = hoymiles.uoutputs.DisplayPlugin(ahoy_config.get('display', {}))  # {'i2c_num': 0}
 mqtt = hoymiles.uoutputs.MqttPlugin(ahoy_config.get('mqtt', {'host': 'homematic-ccu2'}))
 blink = hoymiles.uoutputs.BlinkPlugin(ahoy_config.get('blink', {}))  # {'led_pin': 7, 'led_high_on': True, 'neopixel': False}
 

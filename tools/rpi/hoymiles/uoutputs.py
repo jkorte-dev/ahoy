@@ -23,6 +23,9 @@ class OutputPluginFactory:
 
 class DisplayPlugin(OutputPluginFactory):
     display = None
+    display_width = 128  # default
+    font_size = 10  # fontsize fix 8 + 2 pixel
+
     # symbols 10x10 created with https://www.piskelapp.com/ converted png with gimp to 1 bit b/w pbm files
     symbols = {'sum': bytearray(b'\x00\x00\x7f\x80`\x800\x00\x18\x00\x0c\x00\x18\x000\x00`\x80\x7f\x80'),
                'cal': bytearray(b'\x7f\x80\x7f\x80@\x80D\x80L\x80T\x80D\x80D\x80@\x80\x7f\x80'),
@@ -54,7 +57,8 @@ class DisplayPlugin(OutputPluginFactory):
                 i2c = I2C(i2c_num)
             print("Display i2c", i2c)
             splash = "Ahoy! DTU"
-            self.font_size = 10  # fontsize fix 8 + 2 pixel
+
+            self.display_width = display_width
 
             # extend display class
             def oled_text_scaled(oled, text, x, y, scale, character_width=8, character_height=8):
@@ -75,10 +79,10 @@ class DisplayPlugin(OutputPluginFactory):
                             oled.fill_rect(x + i * scale, y + j * scale, scale, scale, 1)
 
             SSD1306_I2C.text_scaled = oled_text_scaled
-            scale = 2
+            fscale = 2
             self.display = SSD1306_I2C(display_width, display_height, i2c)
             self.display.fill(0)
-            self.display.text_scaled(splash, ((display_width - len(splash)*(self.font_size-2)) // 2), (display_height // 2) - self.font_size, scale)
+            self.display.text_scaled(splash, ((display_width - len(splash)*(self.font_size-2)) // 2), (display_height // 2) - self.font_size, fscale)
             self.display.show()
 
         except Exception as e:
@@ -106,7 +110,7 @@ class DisplayPlugin(OutputPluginFactory):
         # self.show_value(0, f"     {phase_sum_power} W")
         self.show_value(0, f"{phase_sum_power:0.0f}W", center=True, large=True)
         self.show_symbol(0, 'level')
-        self.show_symbol(0, 'wifi', x=self.display.width-self.font_size)
+        self.show_symbol(0, 'wifi', x=self.display_width-self.font_size)
         if data.get('yield_today') is not None:
             yield_today = data['yield_today']
             self.show_value(1, f"{yield_today} Wh", x=40)  # 16+3*8
@@ -154,7 +158,7 @@ class DisplayPlugin(OutputPluginFactory):
         elif event.get('event_type', "") == "suntimes.wakeup":
             self.show_symbol(slot=1, sym='blank')
         elif event.get('event_type', "") == "wifi.up":
-            self.show_symbol(slot=0, sym='wifi', x=self.display.width-self.font_size)
+            self.show_symbol(slot=0, sym='wifi', x=self.display_width-self.font_size)
 
 
 class MqttPlugin(OutputPluginFactory):
