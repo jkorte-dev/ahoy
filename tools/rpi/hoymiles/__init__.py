@@ -628,13 +628,14 @@ class HoymilesDTU:
         self.info_handler = info_handler
         self.event_handler = event_handler
         self.hmradio = None
-        if sys.platform == 'linux':
-            from .nrf24 import HoymilesNRF
-        else:
-            from .nrf24mpy import HoymilesNRF
-            print("importing HoymilesNRF micropython version")
-        for radio_config in ahoy_cfg.get('nrf', [{}]):
-            self.hmradio = HoymilesNRF(**radio_config)  # hmm wird jedesmal ueberschrieben
+        if ahoy_cfg.get('nrf') is not None:
+            if sys.platform == 'linux':
+                from .nrf24 import HoymilesNRF
+            else:
+                from .nrf24mpy import HoymilesNRF
+                print("importing HoymilesNRF micropython version")
+            for radio_config in ahoy_cfg.get('nrf', [{}]):
+                self.hmradio = HoymilesNRF(**radio_config)  # hmm wird jedesmal ueberschrieben
 
         self.inverters = [
             inverter for inverter in ahoy_cfg.get('inverters', [])

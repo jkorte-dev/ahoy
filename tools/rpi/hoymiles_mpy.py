@@ -36,7 +36,7 @@ def init_network_time():
 def result_handler(result, inverter):
     print(result.to_dict())
     display.store_status(result)
-    mqtt.store_status(result)
+    mqtt.store_status(result, topic=inverter.get('mqtt', {}).get('topic', None))
     blink.store_status(result)
     #print("mem_free:", gc.mem_free())
     if use_wdt:
@@ -63,7 +63,7 @@ def event_dispatcher(event):
 
 init_network_time()
 
-display = hoymiles.uoutputs.DisplayPlugin(ahoy_config.get('display', {}))  # {'i2c_num': 0}
+display = hoymiles.uoutputs.DisplayPlugin(ahoy_config.get('display'), {})  # {'i2c_num': 0}
 mqtt = hoymiles.uoutputs.MqttPlugin(ahoy_config.get('mqtt', {'host': 'homematic-ccu2'}))
 blink = hoymiles.uoutputs.BlinkPlugin(ahoy_config.get('blink', {}))  # {'led_pin': 7, 'led_high_on': True, 'neopixel': False}
 

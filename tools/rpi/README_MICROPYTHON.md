@@ -47,6 +47,14 @@ Edit your wifi credentials `ssid` and `password` in `micropython-lib/secrets.py`
 mpremote cp micropython-lib/secrets.py :lib/
 ```
 
+With older micropython version may get an import error when importing asyncio module.
+```
+mpremote cp micropython-lib/asyncio.py :lib/
+```
+
+will fix it.
+
+
 nRF24L01 Driver
 ---------------
 
@@ -89,7 +97,7 @@ mpremote cp hoymiles/websunsethandler.py   :hoymiles/
 mpremote cp hoymiles/uwebserver.py         :hoymiles/
 ```
 
-Alternative installation 
+Alternative Installation 
 -------------------------
 
 The module can also be installed as local mip package with 
@@ -153,7 +161,7 @@ Caveats
 Be prepared for crashes and incomplete documentation.**
 
 If you run out of memory install parts of the hoymiles modules as mpy modules using `mpy-cross`. I think esp32s2 is a good choice to start with, esp32c6 even better.
-Inverter polling is very bad on rp2350 :-(
+Inverter polling is very bad on rp2350 :-( but runs OK on esp32c6.
 
 *Only Hoymiles HM series supported.*
 
