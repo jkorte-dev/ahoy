@@ -3,7 +3,7 @@ import network
 from datetime import datetime, timezone
 import time
 
-_css = """
+_CSS = const("""
     #resp-table, .resp-table{
         width: 100%;
         display: table;
@@ -49,9 +49,9 @@ _css = """
     #content{
         margin: 5px;
     }
-"""
+""")
 
-_js = """
+_JS = const("""
     const spec = {
         'temperature': ['Temp. ', ' °C'],
         'power': ['Power ', ' W'],
@@ -147,9 +147,9 @@ _js = """
             divBody.appendChild(divRow);
         });
     }
-"""
+""")
 
-_start_page = """
+_HTML = const("""
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -162,7 +162,7 @@ _start_page = """
 </div>
 </body>
 </html>
-"""
+""")
 
 
 class WebServer:
@@ -203,11 +203,11 @@ class WebServer:
         elif request.find('/style.css') == 6:
             # print('=> css requested')
             header = 'HTTP/1.1 200 OK\r\nContent-type: text/css\r\n\r\n'
-            response = _css
+            response = _CSS
         elif request.find('/script.js') == 6:
             # print('=> css requested')
             header = 'HTTP/1.1 200 OK\r\nContent-type: text/javascript\r\n\r\n'
-            response = _js
+            response = _JS
         elif request.find('/favicon.ico') == 6:
             header = 'HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n'
             response = "n/a"
@@ -221,7 +221,7 @@ class WebServer:
                     file.close()
                 else:
                     # print('serving default request')
-                    response = _start_page
+                    response = _HTML
             except Exception as e:
                 header = "HTTP/1.1 404 Not Found\n"
                 response = "<html><body><h1>File not found</h1></body></html>"
