@@ -51,11 +51,14 @@ def event_dispatcher(event):
     event_type = event.get('event_type', "")
     if event_type == "inverter.polling" and blink is not None:
         blink.on_event(event)
-    elif display is not None:
-        display.on_event(event)
+    else:
+        if display is not None:
+            display.on_event(event)
+        if mqtt is not None:
+            mqtt.on_event(event, topic=ahoy_config.get('dtu', {}).get('name', 'mpy-dtu'))
     if use_wdt:
         if event_type == "suntimes.sleeping":
-            keepalive_timer.init(mode=Timer.PERIODIC, period=2000, callback=lambda t: (print('t', end=""), watchdog_timer.feed()))
+            keepalive_timer.init(mode=Timer.PERIODIC, period=2000, callback=lambda t: (print(',', end=""), watchdog_timer.feed()))
         elif event_type == "suntimes.wakeup":
             keepalive_timer.deinit()
         watchdog_timer.feed()
@@ -69,7 +72,7 @@ blink = hoymiles.uoutputs.BlinkPlugin(ahoy_config.get('blink', {}))  # {'led_pin
 
 dtu = HoymilesDTU(ahoy_cfg=ahoy_config,
                   status_handler=result_handler,
-                  info_handler=lambda result, inverter: print("hw_info", result, result.to_dict()),
+                  info_handler=result_handler,
                   event_handler=event_dispatcher)
 
 asyncio.run(dtu.start())

@@ -89,6 +89,8 @@ class DisplayPlugin(OutputPluginFactory):
             print("display not initialized", e)
 
     def store_status(self, response, **params):
+        if isinstance(response, HardwareInfoResponse):
+            return
         if not isinstance(response, StatusResponse):
             raise ValueError('Data needs to be instance of StatusResponse')
 
@@ -256,20 +258,27 @@ class MqttPlugin(OutputPluginFactory):
                 self._publish(f'{topic}/total/Efficiency', data['efficiency'])
 
         elif isinstance(response, HardwareInfoResponse):
-            if data["FW_ver_maj"] is not None and data["FW_ver_min"] is not None and data["FW_ver_pat"] is not None:
-                self._publish(f'{topic}/Firmware/Version',
-                              f'{data["FW_ver_maj"]}.{data["FW_ver_min"]}.{data["FW_ver_pat"]}')
+            self._publish(f'{topic}/firmware',
+                          f'v{data.get("FW_ver_maj","")}.{data.get("FW_ver_min","")}.{data.get("FW_ver_pat", "")}' +
+                          f'@{data.get("FW_build_yy","")}.{data.get("FW_build_mm", "")}.{data.get("FW_build_dd", "")}T{data.get("FW_build_HH","")}:{data.get("FW_build_MM","")}')
 
-            if data["FW_build_dd"] is not None and data["FW_build_mm"] is not None and data[
-                "FW_build_yy"] is not None and data["FW_build_HH"] is not None and data["FW_build_MM"] is not None:
-                self._publish(f'{topic}/Firmware/Build_at',
-                              f'{data["FW_build_dd"]}/{data["FW_build_mm"]}/{data["FW_build_yy"]}T{data["FW_build_HH"]}:{data["FW_build_MM"]}')
-
-            if data["FW_HW_ID"] is not None:
-                self._publish(f'{topic}/Firmware/HWPartId', f'{data["FW_HW_ID"]}')
+            if data.get("FW_HW_ID") is not None:
+                self._publish(f'{topic}/hardware', f'{data["FW_HW_ID"]}')
 
         else:
             raise ValueError('Data needs to be instance of StatusResponse or a instance of HardwareInfoResponse')
+
+    def on_event(self, event, topic=None):
+        if not event or not topic:
+            return
+        event_type = event.get('event_type', "")
+        if "suntimes." in event_type:
+            self._publish(f'{topic}/sunset', event.get('sunset', ""))
+            self._publish(f'{topic}/sunrise', event.get('sunrise', ""))
+            if event_type == 'suntimes.sleeping':
+                self._publish(f'{topic}/status', 'sleeping')
+            elif event_type == "suntimes.wakeup":
+                self._publish(f'{topic}/status', 'awake')
 
     def _publish(self, topic, value):
         if self.dry_run or self.client is None:
