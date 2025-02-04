@@ -4,8 +4,9 @@ import asyncio
 import hoymiles.uoutputs
 import gc
 
-use_wdt = False
-#ahoy_config['sunset'] = {'disabled': True}
+use_wdt = True
+# ahoy_config['sunset'] = {'disabled': True}
+# ahoy_config['interval'] = 15
 
 
 if use_wdt:
@@ -18,11 +19,11 @@ def init_network_time():
     print('init_network_time')
     import wlan
     import time
-    wlan.do_connect()
+    import ntptime
+    ip = wlan.do_connect()
     init = 10
     while init:
         try:
-            import ntptime
             ntptime.settime()
             init = 0
         except OSError:
@@ -31,6 +32,7 @@ def init_network_time():
                 print('Failed to set ntp time')
             time.sleep(1)
     gc.collect()
+    return ip
 
 
 def result_handler(result, inverter):
@@ -64,11 +66,16 @@ def event_dispatcher(event):
         watchdog_timer.feed()
 
 
-init_network_time()
+ip_addr = init_network_time()
 
 display = hoymiles.uoutputs.DisplayPlugin(ahoy_config.get('display', {}))  # {'i2c_num': 0}
 mqtt = hoymiles.uoutputs.MqttPlugin(ahoy_config.get('mqtt', {'host': 'homematic-ccu2'}))
 blink = hoymiles.uoutputs.BlinkPlugin(ahoy_config.get('blink', {}))  # {'led_pin': 7, 'led_high_on': True, 'neopixel': False}
+
+if ip_addr:
+    event_dispatcher({'event_type': 'wifi.up', 'ip': ip_addr})
+
+gc.collect()
 
 dtu = HoymilesDTU(ahoy_cfg=ahoy_config,
                   status_handler=result_handler,

@@ -24,7 +24,9 @@ class OutputPluginFactory:
 class DisplayPlugin(OutputPluginFactory):
     display = None
     display_width = 128  # default
-    font_size = 10  # fontsize fix 8 + 2 pixel
+    font_size = 8     # fontsize fix 8 + 2 pixel
+    symbol_size = 10  # symbols fix 10x10 pixel
+    last_ip = None
 
     # symbols 10x10 created with https://www.piskelapp.com/ converted png with gimp to 1 bit b/w pbm files
     symbols = {'sum': bytearray(b'\x00\x00\x7f\x80`\x800\x00\x18\x00\x0c\x00\x18\x000\x00`\x80\x7f\x80'),
@@ -82,7 +84,7 @@ class DisplayPlugin(OutputPluginFactory):
             fscale = 2
             self.display = SSD1306_I2C(display_width, display_height, i2c)
             self.display.fill(0)
-            self.display.text_scaled(splash, ((display_width - len(splash)*(self.font_size-2)) // 2), (display_height // 2) - self.font_size, fscale)
+            self.display.text_scaled(splash, ((display_width - len(splash)*self.font_size) // 2), (display_height // 2) - self.font_size, fscale)
             self.display.show()
 
         except Exception as e:
@@ -100,7 +102,7 @@ class DisplayPlugin(OutputPluginFactory):
             print("Invalid response!")
             return
 
-        if self.display is not None:
+        if self.display:
             self.display.fill(0)
             self.display.show()
 
@@ -112,7 +114,7 @@ class DisplayPlugin(OutputPluginFactory):
         # self.show_value(0, f"     {phase_sum_power} W")
         self.show_value(0, f"{phase_sum_power:0.0f}W", center=True, large=True)
         self.show_symbol(0, 'level')
-        self.show_symbol(0, 'wifi', x=self.display_width-self.font_size)
+        self.show_symbol(0, 'wifi', x=self.display_width-self.symbol_size)
         if data.get('yield_today') is not None:
             yield_today = data['yield_today']
             self.show_value(1, f"{yield_today} Wh", x=40)  # 16+3*8
@@ -125,6 +127,8 @@ class DisplayPlugin(OutputPluginFactory):
             timestamp = data['time']  # datetime.isoformat()
             Y, M, D, h, m, s, us, tz, fold = timestamp.tuple()
             self.show_value(3, f' {D:02d}.{M:02d} {h:02d}:{m:02d}:{s:02d}')
+        if self.last_ip:
+            self.show_value(4, self.last_ip, center=True)
 
     def show_value(self, slot, value, x=None, y=None, center=False, large=False):
         if self.display is None:
@@ -133,7 +137,7 @@ class DisplayPlugin(OutputPluginFactory):
         x, y = self._slot_pos(slot, x, y, length=len(value) if center else None)
         if large:
             _scale = 2
-            self.display.text_scaled(value, x - _scale*(self.font_size-2), y, _scale)
+            self.display.text_scaled(value, x - _scale*self.font_size, y, _scale)
         else:
             self.display.fill_rect(x, y, self.display.width, self.font_size, 0)  # clear data on display
             self.display.text(value, x, y, 1)
@@ -145,12 +149,12 @@ class DisplayPlugin(OutputPluginFactory):
         data = self.symbols.get(sym)
         if data:
             x, y = self._slot_pos(slot, x, y)
-            self.display.blit(framebuf.FrameBuffer(data, self.font_size, self.font_size, framebuf.MONO_HLSB), x, y)
+            self.display.blit(framebuf.FrameBuffer(data, self.symbol_size, self.symbol_size, framebuf.MONO_HLSB), x, y)
             self.display.show()
 
     def _slot_pos(self, slot, x=None, y=None, length=None):
-        x = x if x else ((self.display.width - length*(self.font_size-2)) // 2) if length else 0
-        y = y if y else slot * (self.display.height // 4) + 8 if slot else 0
+        x = x if x else ((self.display.width - length*self.font_size) // 2) if length else 0
+        y = y if y else slot * (self.display.height // 5) + 8 if slot else 0
         return x, y
 
     def on_event(self, event):
@@ -160,7 +164,9 @@ class DisplayPlugin(OutputPluginFactory):
         elif event.get('event_type', "") == "suntimes.wakeup":
             self.show_symbol(slot=1, sym='blank')
         elif event.get('event_type', "") == "wifi.up":
-            self.show_symbol(slot=0, sym='wifi', x=self.display_width-self.font_size)
+            self.show_symbol(slot=0, sym='wifi', x=self.display_width-self.symbol_size)
+            self.show_value(4, event.get('ip', ""), center=True)
+            self.last_ip = event.get('ip', "")
 
 
 class MqttPlugin(OutputPluginFactory):

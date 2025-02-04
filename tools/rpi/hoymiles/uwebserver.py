@@ -20,6 +20,7 @@ _CSS = const("""
         padding: 8px;
         line-height: 1.42857143;
         vertical-align: top;
+        font-family: Arial;
     }
    .header-green{
         background: green;
@@ -48,6 +49,17 @@ _CSS = const("""
     }
     #content{
         margin: 5px;
+    }
+    
+    @media only screen and (min-width: 420px) {
+        .table-body-cell {
+            font-size: 30px;
+        }
+    }
+    @media only screen and (orientation: landscape) {
+        .table-body-cell {
+            font-size: 14px;
+        }
     }
 """)
 
@@ -87,7 +99,7 @@ _JS = const("""
 
         const divContent = document.getElementById('content');
         divContent.innerText = ''; // clear node first
-        renderTable(divContent, values, json.inverter_name + ' ' + json.time + ' ' + new Date(), 'header-green', 'cell-lightgreen');
+        renderTable(divContent, values, json.inverter_name + ' ' + json.time + '\\n ' + new Date(), 'header-green', 'cell-lightgreen');
         json.strings.forEach(item => {
             parentNode = div('half');
             divContent.appendChild(parentNode);

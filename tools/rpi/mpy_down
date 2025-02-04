@@ -1,0 +1,15 @@
+mkdir -p ./tmp/hoymiles
+mkdir -p ./tmp/hoymiles/decoders
+mkdir -p ./tmp/hoymiles/nrf24mpy
+mpremote cp :hoymiles/__init__.py           ./tmp/hoymiles/
+mpremote cp :hoymiles/decoders/__init__.py  ./tmp/hoymiles/decoders/
+mpremote cp :hoymiles/decoders/ucrcmod.py   ./tmp/hoymiles/decoders/
+mpremote cp :hoymiles/nrf24mpy/__init__.py  ./tmp/hoymiles/nrf24mpy/
+mpremote cp :hoymiles/nrf24mpy/nrf24_mp.py  ./tmp/hoymiles/nrf24mpy/
+mpremote cp :hoymiles/nrf24mpy/nrf24_mp.mpy ./tmp/hoymiles/nrf24mpy/
+
+mpremote cp :hoymiles/uoutputs.py           ./tmp/hoymiles/
+mpremote cp :hoymiles/websunsethandler.py   ./tmp/hoymiles/
+mpremote cp :hoymiles_mpy.py   ./tmp/
+mpremote cp :hoymiles_exp.py   ./tmp/
+mpremote cp :ahoy_cfg.py       ./tmp/
