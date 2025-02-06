@@ -51,6 +51,18 @@ _CSS = const("""
         margin: 5px;
     }
     
+   .footer{
+        background-color: lightgrey;
+        margin: 6px;
+        padding: 5px;
+        font-family: Arial;
+        text-align: center;
+    }
+
+    .event {
+        margin: 6px;
+    }
+ 
     @media only screen and (min-width: 420px) {
         .table-body-cell {
             font-size: 30px;
@@ -97,14 +109,26 @@ _JS = const("""
         let values = [json]
         json.power = json.phases[0].power;
 
-        const divContent = document.getElementById('content');
-        divContent.innerText = ''; // clear node first
-        renderTable(divContent, values, json.inverter_name + ' ' + json.time + '\\n ' + new Date(), 'header-green', 'cell-lightgreen');
+        const content = document.getElementById('content');
+        content.innerText = ''; // clear node first
+        renderTable(content, values, json.inverter_name + ' ' + json.time + '\\n ' + new Date(), 'header-green', 'cell-lightgreen');
         json.strings.forEach(item => {
-            parentNode = div('half');
-            divContent.appendChild(parentNode);
-            renderTable(parentNode, [item], item.name, 'header-blue', 'cell-lightblue');
+            strNde = div('half');
+            content.appendChild(strNde);
+            renderTable(strNde, [item], item.name, 'header-blue', 'cell-lightblue');
         })
+
+        const footer = document.getElementById('footer');
+        footer.className = 'footer'
+        if (json.event) {
+            footer.innerText = ''
+            Object.keys(json.event).forEach(key => {
+                let e =  document.createElement('span');
+                e.innerText = `${key}: ${json.event[key]}`
+                e.className = "event"
+                footer.appendChild(e)
+            })
+        }
     };
 
     function div(cssClass) {
@@ -172,6 +196,7 @@ _HTML = const("""
 <div id="content">
   DTU started waiting for data ....
 </div>
+<div id="footer"></div>
 </body>
 </html>
 """)

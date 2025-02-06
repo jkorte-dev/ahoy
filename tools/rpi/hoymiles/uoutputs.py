@@ -333,18 +333,27 @@ class BlinkPlugin(OutputPluginFactory):
 
 class WebPlugin(OutputPluginFactory):
     last_response = {'time': datetime.now(timezone.utc), 'inverter_name': 'unkown', 'phases': [{}], 'strings': [{}]}
+    last_event = {}
 
     def __init__(self, config, **params):
         super().__init__(**params)
+        if config:
+            self.last_response['inverter_name'] = config.get('name', 'unkown')
+            self.last_response['strings'] = [{'name': e.get('s_name', "panel")} for e in config.get('strings', [])]
 
     def store_status(self, response, **params):
         self.last_response = response.to_dict()
 
     def get_data(self):
         _last = self.last_response
+        _last['event'] = self.last_event
         _timestamp = _last['time']
         if isinstance(_timestamp, datetime):
             _new_ts = _timestamp.isoformat().split('.')[0]
             _last['time'] = _new_ts
         return f"{_last}".replace('\'', '\"')
+
+    def on_event(self, event):
+        if 'suntimes' in event.get('event_type', ""):
+            self.last_event = event
 

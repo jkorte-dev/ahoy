@@ -52,13 +52,15 @@ def event_dispatcher(event):
         print("invalid event", event)
         return
     event_type = event.get('event_type', "")
-    if event_type == "inverter.polling" and blink is not None:
+    if event_type == "inverter.polling" and blink:
         blink.on_event(event)
     else:
-        if display is not None:
+        if display:
             display.on_event(event)
-        if mqtt is not None:
+        if mqtt:
             mqtt.on_event(event, topic=ahoy_config.get('dtu', {}).get('name', 'mpy-dtu'))
+        if webdata:
+            webdata.on_event(event)
     if use_wdt:
         if event_type == "suntimes.sleeping":
             keepalive_timer.init(mode=Timer.PERIODIC, period=2000, callback=lambda t: (print(',', end=""), watchdog_timer.feed()))
@@ -72,7 +74,7 @@ ip_addr = init_network_time()
 display = hoymiles.uoutputs.DisplayPlugin(ahoy_config.get('display', {}))  # {'i2c_num': 0}
 mqtt = hoymiles.uoutputs.MqttPlugin(ahoy_config.get('mqtt', {'host': 'homematic-ccu2'}))
 blink = hoymiles.uoutputs.BlinkPlugin(ahoy_config.get('blink', {}))  # {'led_pin': 7, 'led_high_on': True, 'neopixel': False}
-webdata = hoymiles.uoutputs.WebPlugin({})
+webdata = hoymiles.uoutputs.WebPlugin(ahoy_config.get('inverters', [{}])[0])
 
 if ip_addr:
     event_dispatcher({'event_type': 'wifi.up', 'ip': ip_addr})
