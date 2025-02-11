@@ -51,12 +51,12 @@ def event_dispatcher(event):
         print("invalid event", event)
         return
     event_type = event.get('event_type', "")
-    if event_type == "inverter.polling" and blink is not None:
+    if event_type == "inverter.polling" and blink:
         blink.on_event(event)
     else:
-        if display is not None:
+        if display:
             display.on_event(event)
-        if mqtt is not None:
+        if mqtt:
             mqtt.on_event(event, topic=ahoy_config.get('dtu', {}).get('name', 'mpy-dtu'))
     if use_wdt:
         if event_type == "suntimes.sleeping":
