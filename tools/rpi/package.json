@@ -33,23 +33,5 @@
       "http://localhost:8000/hoymiles/uradio/nrf24.py"
     ]
   ],
-  "deps": [
-    [
-      "datetime",
-      "latest"
-    ],
-    [
-      "logging",
-      "latest"
-    ],
-    [
-      "umqtt.robust",
-      "latest"
-    ],
-    [
-      "ssd1306",
-      "latest"
-    ]
-  ],
   "version": "0.1.0"
 }
